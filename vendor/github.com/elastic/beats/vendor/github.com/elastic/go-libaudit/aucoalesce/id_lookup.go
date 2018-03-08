@@ -1,0 +1,143 @@
+// Copyright 2017-2018 Elasticsearch Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package aucoalesce
+
+import (
+	"math"
+	"os/user"
+	"strings"
+	"time"
+)
+
+const cacheTimeout = 0
+
+var (
+	userLookup  = NewUserCache()
+	groupLookup = NewGroupCache()
+)
+
+type stringItem struct {
+	timeout time.Time
+	value   string
+}
+
+func (i *stringItem) isExpired() bool {
+	return time.Now().After(i.timeout)
+}
+
+// UserCache is a cache of UID to username.
+type UserCache map[string]stringItem
+
+// NewUserCache returns a new UserCache.
+func NewUserCache() UserCache {
+	return map[string]stringItem{
+		"0": {timeout: time.Unix(math.MaxInt64, 0), value: "root"},
+	}
+}
+
+// LookupUID looks up a UID and returns the username associated with it. If
+// no username could be found an empty string is returned. The value will be
+// cached for a minute. This requires cgo on Linux.
+func (c UserCache) LookupUID(uid string) string {
+	if uid == "" || uid == "unset" {
+		return ""
+	}
+
+	if item, found := c[uid]; found && !item.isExpired() {
+		return item.value
+	}
+
+	// Cache the value (even on error).
+	user, err := user.LookupId(uid)
+	if err != nil {
+		c[uid] = stringItem{timeout: time.Now().Add(cacheTimeout), value: ""}
+		return ""
+	}
+
+	c[uid] = stringItem{timeout: time.Now().Add(cacheTimeout), value: user.Username}
+	return user.Username
+}
+
+// GroupCache is a cache of GID to group name.
+type GroupCache map[string]stringItem
+
+// NewGroupCache returns a new GroupCache.
+func NewGroupCache() GroupCache {
+	return map[string]stringItem{
+		"0": {timeout: time.Unix(math.MaxInt64, 0), value: "root"},
+	}
+}
+
+// LookupGID looks up a GID and returns the group associated with it. If
+// no group could be found an empty string is returned. The value will be
+// cached for a minute. This requires cgo on Linux.
+func (c GroupCache) LookupGID(gid string) string {
+	if gid == "" || gid == "unset" {
+		return ""
+	}
+
+	if item, found := c[gid]; found && !item.isExpired() {
+		return item.value
+	}
+
+	// Cache the value (even on error).
+	group, err := user.LookupGroupId(gid)
+	if err != nil {
+		c[gid] = stringItem{timeout: time.Now().Add(cacheTimeout), value: ""}
+		return ""
+	}
+
+	c[gid] = stringItem{timeout: time.Now().Add(cacheTimeout), value: group.Name}
+	return group.Name
+}
+
+// ResolveIDs translates all uid and gid values to their associated names.
+// This requires cgo on Linux.
+func ResolveIDs(event *Event) {
+	// Actor
+	if v := userLookup.LookupUID(event.Summary.Actor.Primary); v != "" {
+		event.Summary.Actor.Primary = v
+	}
+	if v := userLookup.LookupUID(event.Summary.Actor.Secondary); v != "" {
+		event.Summary.Actor.Secondary = v
+	}
+
+	// User
+	names := map[string]string{}
+	for key, id := range event.User.IDs {
+		if strings.HasSuffix(key, "uid") {
+			if v := userLookup.LookupUID(id); v != "" {
+				names[key] = v
+			}
+		} else if strings.HasSuffix(key, "gid") {
+			if v := groupLookup.LookupGID(id); v != "" {
+				names[key] = v
+			}
+		}
+	}
+	if len(names) > 0 {
+		event.User.Names = names
+	}
+
+	// File owner/group
+	if event.File != nil {
+		if event.File.UID != "" {
+			event.File.Owner = userLookup.LookupUID(event.File.UID)
+		}
+		if event.File.GID != "" {
+			event.File.Group = groupLookup.LookupGID(event.File.GID)
+		}
+	}
+}

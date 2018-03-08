@@ -1,0 +1,34 @@
+# Directories
+/.vagrant
+/.idea
+/.vscode
+/build
+/*/data
+/*/logs
+/*/fields.yml
+/*/*.template*.json
+**/html_docs
+
+# Files
+.DS_Store
+/beats.iml
+*.dev.yml
+*.generated.yml
+coverage.out
+.python-version
+beat.db
+*.keystore
+
+# Editor swap files
+*.swp
+*.swo
+*.swn
+
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+*.exe
+*.test
+*.prof
+*.pyc
