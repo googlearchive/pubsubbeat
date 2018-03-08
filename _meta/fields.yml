@@ -1,0 +1,9 @@
+- key: pubsubbeat
+  title: pubsubbeat
+  description:
+  fields:
+    - name: counter
+      type: long
+      required: true
+      description: >
+        PLEASE UPDATE DOCUMENTATION
