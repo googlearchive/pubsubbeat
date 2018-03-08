@@ -1,8 +1,17 @@
-/.idea
-/build
+# OS X
+.DS_Store
+
+# build & run
+pubsubbeat
+pubsubbeat.test
+build/
+data/
+logs/
+
+# IntelliJ IDEA
+.idea/
+.project
 *.iml
 
-.DS_Store
-/pubsubbeat
-/pubsubbeat.test
+# Python
 *.pyc
