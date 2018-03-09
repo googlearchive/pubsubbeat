@@ -1,34 +1,16 @@
 # Pubsubbeat
 
-Welcome to Pubsubbeat.
+Pubsubbeat is an elastic [Beat](https://www.elastic.co/products/beats) for [Google Cloud Pub/Sub](https://cloud.google.com/pubsub/).
+This Beat subscribes to a topic and ingest messages.
 
-Ensure that this folder is at the following location:
-`${GOPATH}/src/github.com/rosbo/pubsubbeat`
+The main motivation behind the development of this plugin is to ingest [Stackdriver Logs](https://cloud.google.com/stackdriver/)
+via the [Exported Logs](https://cloud.google.com/logging/docs/export/using_exported_logs) feature.
 
 ## Getting Started with Pubsubbeat
 
 ### Requirements
 
 * [Golang](https://golang.org/dl/) 1.7
-
-### Init Project
-To get running with Pubsubbeat and also install the
-dependencies, run the following command:
-
-```
-make setup
-```
-
-It will create a clean git history for each major step. Note that you can always rewrite the history if you wish before pushing your changes.
-
-To push Pubsubbeat in the git repository, run the following commands:
-
-```
-git remote set-url origin https://github.com/rosbo/pubsubbeat
-git push origin master
-```
-
-For further development, check out the [beat developer guide](https://www.elastic.co/guide/en/beats/libbeat/current/new-beat.html).
 
 ### Build
 
@@ -39,7 +21,6 @@ in the same directory with the name pubsubbeat.
 make
 ```
 
-
 ### Run
 
 To run Pubsubbeat with debugging output enabled, run:
@@ -47,7 +28,6 @@ To run Pubsubbeat with debugging output enabled, run:
 ```
 ./pubsubbeat -c pubsubbeat.yml -e -d "*"
 ```
-
 
 ### Test
 

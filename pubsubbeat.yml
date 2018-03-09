@@ -3,8 +3,15 @@
 ############################# Pubsubbeat ######################################
 
 pubsubbeat:
-  # Defines how often an event is sent to the output
-  period: 1s
+  # The GCP project ID with your Pub/Sub topic
+  project_id:
+
+  # The Pub/Sub topic name. You must first create this topic.
+  topic:
+
+  # The Pub/Sub subscription name. If the subscription does not exist,
+  # Pubsubbeat will attempt to create the subscription.
+  subscription:
 
 #================================ General =====================================
 

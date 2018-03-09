@@ -3,12 +3,24 @@
 
 package config
 
-import "time"
+import (
+	"fmt"
+
+	"github.com/elastic/beats/libbeat/common"
+)
 
 type Config struct {
-	Period time.Duration `config:"period"`
+	Project      string `config:"project_id" validate:"required"`
+	Topic        string `config:"topic" validate:"required"`
+	Subscription string `config:"subscription" validate:"required"`
 }
 
-var DefaultConfig = Config{
-	Period: 1 * time.Second,
+var DefaultConfig = Config{}
+
+func GetAndValidateConfig(cfg *common.Config) (*Config, error) {
+	c := DefaultConfig
+	if err := cfg.Unpack(&c); err != nil {
+		return nil, fmt.Errorf("error in config file: %v", err)
+	}
+	return &c, nil
 }
