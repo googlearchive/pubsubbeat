@@ -22,7 +22,7 @@ type Pubsubbeat struct {
 	client       beat.Client
 	pubsubClient *pubsub.Client
 	subscription *pubsub.Subscription
-	logger *logp.Logger
+	logger       *logp.Logger
 }
 
 func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
@@ -30,6 +30,9 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	logger := logp.NewLogger(fmt.Sprintf("PubSub: %s/%s/%s", config.Project, config.Topic, config.Subscription.Name))
+	logger.Infof("config retrieved: %+v", config)
 
 	client, err := createPubsubClient(config)
 	if err != nil {
@@ -46,7 +49,7 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		config:       config,
 		pubsubClient: client,
 		subscription: subscription,
-		logger: logp.NewLogger(fmt.Sprintf("PubSub: %s/%s/%s", config.Project, config.Subscription, config.Topic)),
+		logger:       logger,
 	}
 	return bt, nil
 }
@@ -122,14 +125,15 @@ func getOrCreateSubscription(client *pubsub.Client, config *config.Config) (*pub
 	topic := client.Topic(config.Topic)
 	ctx := context.Background()
 
-	subscription, err := client.CreateSubscription(ctx, config.Subscription, pubsub.SubscriptionConfig{
-		Topic: topic,
-		// TODO: Allow setting other parameters such as AckDeadline
+	subscription, err := client.CreateSubscription(ctx, config.Subscription.Name, pubsub.SubscriptionConfig{
+		Topic:               topic,
+		RetainAckedMessages: config.Subscription.RetainAckedMessages,
+		RetentionDuration:   config.Subscription.RetentionDuration,
 	})
 
 	if st, ok := status.FromError(err); ok && st.Code() == codes.AlreadyExists {
 		// The subscription already exists.
-		subscription = client.Subscription(config.Subscription)
+		subscription = client.Subscription(config.Subscription.Name)
 	} else if ok && st.Code() == codes.NotFound {
 		return nil, fmt.Errorf("topic %q does not exists", config.Topic)
 	} else {
