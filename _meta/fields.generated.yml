@@ -2,8 +2,25 @@
   title: pubsubbeat
   description:
   fields:
-    - name: counter
-      type: long
-      required: true
-      description: >
-        PLEASE UPDATE DOCUMENTATION
+    - name: message
+      type: group
+      fields:
+        - name: data
+          type: string
+          description: >
+            Data in the message
+        - name: id
+          type: string
+          description: >
+            ID assigned by the Pub/Sub server identifying this message
+        - name: publish_time
+          type: date
+          format: date
+          example: August 26th 2016, 12:35:53.332
+          description: >
+            The time at which the message was published.
+            This is populated by the Pub/Sub server
+        - name: attributes
+          type: object
+          description: >
+            Key-value pairs describing the current message

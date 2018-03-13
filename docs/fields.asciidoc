@@ -276,13 +276,40 @@ Kubernetes container image
 None
 
 
+
 [float]
-=== `counter`
+=== `message.data`
 
-type: long
+type: string
 
-required: True
+Data in the message
 
-PLEASE UPDATE DOCUMENTATION
+
+[float]
+=== `message.id`
+
+type: string
+
+ID assigned by the Pub/Sub server identifying this message
+
+
+[float]
+=== `message.publish_time`
+
+type: date
+
+example: August 26th 2016, 12:35:53.332
+
+format: date
+
+The time at which the message was published. This is populated by the Pub/Sub server
+
+
+[float]
+=== `message.attributes`
+
+type: object
+
+Key-value pairs describing the current message
 
 
