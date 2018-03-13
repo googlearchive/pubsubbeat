@@ -10,8 +10,11 @@ import (
 
 	"context"
 
+	"runtime"
+
 	"cloud.google.com/go/pubsub"
 	"github.com/rosbo/pubsubbeat/config"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -110,11 +113,11 @@ func (bt *Pubsubbeat) Stop() {
 }
 
 func createPubsubClient(config *config.Config) (*pubsub.Client, error) {
-	// TODO: Add user-agent to track our impact
 	ctx := context.Background()
-
+	userAgent := fmt.Sprintf(
+		"(%s %s) Elastic/Pubsubbeat", runtime.GOOS, runtime.GOARCH)
 	// TODO: Support different auth mecanism
-	client, err := pubsub.NewClient(ctx, config.Project)
+	client, err := pubsub.NewClient(ctx, config.Project, option.WithUserAgent(userAgent))
 	if err != nil {
 		return nil, fmt.Errorf("fail to create pubsub client: %v", err)
 	}
