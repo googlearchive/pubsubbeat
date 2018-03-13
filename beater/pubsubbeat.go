@@ -22,6 +22,7 @@ type Pubsubbeat struct {
 	client       beat.Client
 	pubsubClient *pubsub.Client
 	subscription *pubsub.Subscription
+	logger *logp.Logger
 }
 
 func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
@@ -45,12 +46,13 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		config:       config,
 		pubsubClient: client,
 		subscription: subscription,
+		logger: logp.NewLogger(fmt.Sprintf("PubSub: %s/%s/%s", config.Project, config.Subscription, config.Topic)),
 	}
 	return bt, nil
 }
 
 func (bt *Pubsubbeat) Run(b *beat.Beat) error {
-	logp.Info("pubsubbeat is running! Hit CTRL-C to stop it.")
+	bt.logger.Info("pubsubbeat is running! Hit CTRL-C to stop it.")
 
 	var err error
 	bt.client, err = b.Publisher.Connect()
@@ -62,9 +64,9 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 	go func() {
 		<-bt.done
 		// The beat is stopping...
-		// Cancel the pubsub message receiver first.
+		bt.logger.Info("cancelling PubSub receive context...")
 		cancel()
-		// Then close the pubsub client
+		bt.logger.Info("closing PubSub client...")
 		bt.pubsubClient.Close()
 	}()
 
