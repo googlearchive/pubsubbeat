@@ -7,6 +7,8 @@ import (
 
 	"time"
 
+	"path/filepath"
+
 	"github.com/elastic/beats/libbeat/common"
 )
 
@@ -39,15 +41,13 @@ func TestGetAndValidateConfigMissingRequiredFields(t *testing.T) {
 	}
 
 	for tn, tc := range cases {
-		c := common.NewConfig()
+		c := createDefaultTestConfig()
+
 		c.SetString("project_id", -1, tc.Project)
 		c.SetString("topic", -1, tc.Topic)
 
-		sConfig := common.NewConfig()
+		sConfig, _ := c.Child("subscription", -1)
 		sConfig.SetString("name", -1, tc.Subscription)
-		sConfig.SetBool("retain_acked_messages", -1, false)
-		sConfig.SetString("retention_duration", -1, "10m")
-		c.SetChild("subscription", -1, sConfig)
 
 		_, err := GetAndValidateConfig(c)
 
@@ -97,15 +97,11 @@ func TestGetAndValidateConfigSubscriptionConfig(t *testing.T) {
 	}
 
 	for tn, tc := range cases {
-		c := common.NewConfig()
-		c.SetString("project_id", -1, "a-project")
-		c.SetString("topic", -1, "a-topic")
+		c := createDefaultTestConfig()
 
-		sConfig := common.NewConfig()
-		sConfig.SetString("name", -1, "a-subscription")
+		sConfig, _ := c.Child("subscription", -1)
 		sConfig.SetBool("retain_acked_messages", -1, tc.RetainAckedMessages)
 		sConfig.SetString("retention_duration", -1, tc.RetentionDuration)
-		c.SetChild("subscription", -1, sConfig)
 
 		conf, err := GetAndValidateConfig(c)
 
@@ -127,4 +123,52 @@ func TestGetAndValidateConfigSubscriptionConfig(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestGetAndValidateConfigCredentialsFile(t *testing.T) {
+	cases := map[string]struct {
+		CredentialsFilePath string
+		ExpectError         bool
+	}{
+		"credentials file exists": {
+			CredentialsFilePath: filepath.Join("testdata", "fake-creds.json"),
+			ExpectError:         false,
+		},
+		"credentials file does not exist": {
+			CredentialsFilePath: filepath.Join("testdata", "missing.json"),
+			ExpectError:         true,
+		},
+	}
+
+	for tn, tc := range cases {
+		c := createDefaultTestConfig()
+		c.SetString("credentials_file", -1, tc.CredentialsFilePath)
+
+		_, err := GetAndValidateConfig(c)
+
+		if tc.ExpectError {
+			if err == nil {
+				t.Errorf("%s: expected to fail", tn)
+			}
+		} else {
+			if err != nil {
+				t.Errorf("%s: not expected to fail; %s", tn, err)
+			}
+		}
+	}
+}
+
+// Creates a config with valid default values
+func createDefaultTestConfig() *common.Config {
+	c := common.NewConfig()
+	c.SetString("project_id", -1, "a-project")
+	c.SetString("topic", -1, "a-topic")
+
+	sConfig := common.NewConfig()
+	sConfig.SetString("name", -1, "a-subscription")
+	sConfig.SetBool("retain_acked_messages", -1, false)
+	sConfig.SetString("retention_duration", -1, "10m")
+	c.SetChild("subscription", -1, sConfig)
+
+	return c
 }

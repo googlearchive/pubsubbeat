@@ -3,6 +3,18 @@
 ############################# Pubsubbeat ######################################
 
 pubsubbeat:
+  # The service account or refresh token JSON credentials file to use
+  # to authenticate API calls.
+  #
+  # If you don't specify a credentials file, this Beat will use a
+  # strategy called Application Default Credentials (ADC) to find your
+  # application's credentials. If your Beat runs on Google Cloud Platform,
+  # this strategy is recommended.
+  #
+  # To learn more about ADC:
+  # - https://cloud.google.com/docs/authentication/production
+  credentials_file:
+
   # The GCP project ID with your Pub/Sub topic
   project_id: my-gcp-project
 

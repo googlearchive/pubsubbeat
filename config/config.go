@@ -8,13 +8,16 @@ import (
 
 	"time"
 
+	"os"
+
 	"github.com/elastic/beats/libbeat/common"
 )
 
 type Config struct {
-	Project      string `config:"project_id" validate:"required"`
-	Topic        string `config:"topic" validate:"required"`
-	Subscription struct {
+	Project         string `config:"project_id" validate:"required"`
+	Topic           string `config:"topic" validate:"required"`
+	CredentialsFile string `config:"credentials_file"`
+	Subscription    struct {
 		Name                string        `config:"name" validate:"required"`
 		RetainAckedMessages bool          `config:"retain_acked_messages"`
 		RetentionDuration   time.Duration `config:"retention_duration"`
@@ -35,6 +38,12 @@ func GetAndValidateConfig(cfg *common.Config) (*Config, error) {
 
 	if d, _ := time.ParseDuration("168h"); c.Subscription.RetentionDuration > d {
 		return nil, fmt.Errorf("retention_duration cannot be longer than 7 days")
+	}
+
+	if c.CredentialsFile != "" {
+		if _, err := os.Stat(c.CredentialsFile); os.IsNotExist(err) {
+			return nil, fmt.Errorf("cannot find the credentials_file %q", c.CredentialsFile)
+		}
 	}
 
 	return &c, nil

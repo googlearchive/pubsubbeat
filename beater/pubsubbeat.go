@@ -116,8 +116,12 @@ func createPubsubClient(config *config.Config) (*pubsub.Client, error) {
 	ctx := context.Background()
 	userAgent := fmt.Sprintf(
 		"(%s %s) Elastic/Pubsubbeat", runtime.GOOS, runtime.GOARCH)
-	// TODO: Support different auth mecanism
-	client, err := pubsub.NewClient(ctx, config.Project, option.WithUserAgent(userAgent))
+	options := []option.ClientOption{option.WithUserAgent(userAgent)}
+	if config.CredentialsFile != "" {
+		options = append(options, option.WithCredentialsFile(config.CredentialsFile))
+	}
+
+	client, err := pubsub.NewClient(ctx, config.Project, options...)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create pubsub client: %v", err)
 	}
