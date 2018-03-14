@@ -175,11 +175,11 @@
       type: group
       fields:
         - name: data
-          type: string
+          type: text
           description: >
             Data in the message
         - name: id
-          type: string
+          type: text
           description: >
             ID assigned by the Pub/Sub server identifying this message
         - name: publish_time

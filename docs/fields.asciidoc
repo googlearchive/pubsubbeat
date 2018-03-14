@@ -280,7 +280,7 @@ None
 [float]
 === `message.data`
 
-type: string
+type: text
 
 Data in the message
 
@@ -288,7 +288,7 @@ Data in the message
 [float]
 === `message.id`
 
-type: string
+type: text
 
 ID assigned by the Pub/Sub server identifying this message
 
