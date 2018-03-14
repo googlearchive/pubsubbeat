@@ -78,22 +78,20 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 
 	err = bt.subscription.Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
 		// This callback is invoked concurrently by multiple goroutines
-		messageMap := common.MapStr{
-			"id":           m.ID,
+		eventMap := common.MapStr{
+			"type":         b.Info.Name,
+			"message_id":   m.ID,
 			"publish_time": m.PublishTime,
-			"data":         string(m.Data),
+			"message":      string(m.Data),
 		}
 
 		if len(m.Attributes) > 0 {
-			messageMap["attributes"] = m.Attributes
+			eventMap["attributes"] = m.Attributes
 		}
 
 		bt.client.Publish(beat.Event{
 			Timestamp: time.Now(),
-			Fields: common.MapStr{
-				"type":    b.Info.Name,
-				"message": messageMap,
-			},
+			Fields:    eventMap,
 		})
 
 		// TODO: Evaluate using AckHandler.

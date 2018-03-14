@@ -273,28 +273,32 @@ Kubernetes container image
 [[exported-fields-pubsubbeat]]
 == pubsubbeat fields
 
-None
+A Pub/Sub message and its attributes
 
 
 
 [float]
-=== `message.data`
+=== `message`
 
 type: text
 
-Data in the message
+required: False
+
+Plain text message payload
 
 
 [float]
-=== `message.id`
+=== `message_id`
 
 type: text
+
+required: True
 
 ID assigned by the Pub/Sub server identifying this message
 
 
 [float]
-=== `message.publish_time`
+=== `publish_time`
 
 type: date
 
@@ -302,13 +306,17 @@ example: August 26th 2016, 12:35:53.332
 
 format: date
 
+required: True
+
 The time at which the message was published. This is populated by the Pub/Sub server
 
 
 [float]
-=== `message.attributes`
+=== `attributes`
 
 type: object
+
+required: False
 
 Key-value pairs describing the current message
 

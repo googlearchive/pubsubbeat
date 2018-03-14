@@ -1,26 +1,28 @@
 - key: pubsubbeat
   title: pubsubbeat
-  description:
+  description: >
+    A Pub/Sub message and its attributes
   fields:
     - name: message
-      type: group
-      fields:
-        - name: data
-          type: text
-          description: >
-            Data in the message
-        - name: id
-          type: text
-          description: >
-            ID assigned by the Pub/Sub server identifying this message
-        - name: publish_time
-          type: date
-          format: date
-          example: August 26th 2016, 12:35:53.332
-          description: >
-            The time at which the message was published.
-            This is populated by the Pub/Sub server
-        - name: attributes
-          type: object
-          description: >
-            Key-value pairs describing the current message
+      type: text
+      required: false
+      description: >
+        Plain text message payload
+    - name: message_id
+      type: text
+      required: true
+      description: >
+        ID assigned by the Pub/Sub server identifying this message
+    - name: publish_time
+      type: date
+      format: date
+      example: August 26th 2016, 12:35:53.332
+      required: true
+      description: >
+        The time at which the message was published.
+        This is populated by the Pub/Sub server
+    - name: attributes
+      type: object
+      required: false
+      description: >
+        Key-value pairs describing the current message
