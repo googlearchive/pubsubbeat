@@ -282,9 +282,19 @@ A Pub/Sub message and its attributes
 
 type: text
 
-required: False
+required: True
 
 Plain text message payload
+
+
+[float]
+=== `json`
+
+type: object
+
+required: False
+
+JSON decoded message payload (only if `json.enabled` is set to true in your config)
 
 
 [float]

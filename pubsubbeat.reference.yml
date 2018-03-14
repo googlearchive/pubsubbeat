@@ -21,23 +21,35 @@ pubsubbeat:
   # The Pub/Sub topic name. You must first create this topic.
   topic: my-topic
 
-  subscription:
-    # The Pub/Sub subscription name. If the subscription does not exist,
-    # Pubsubbeat will attempt to create the subscription.
-    name: my-subscription
+  # The Pub/Sub subscription name. If the subscription does not exist,
+  # Pubsubbeat will attempt to create the subscription.
+  subscription.name: my-subscription
 
-    # The settings below are used only if the Beat creates the subscription.
+  # The settings below are used only if the Beat creates the subscription.
 
-    # Whether to retain acknowledged messages. If true, acknowledged messages
-    # will not be expunged until they fall out of the RetentionDuration window.
-    retain_acked_messages: false
+  # Whether to retain acknowledged messages. If true, acknowledged messages
+  # will not be expunged until they fall out of the RetentionDuration window.
+  subscription.retain_acked_messages: false
 
-    # How long to retain messages in backlog, from the time of publish. If
-    # retain_acked_messages is true, this duration affects the retention of
-    # acknowledged messages, otherwise only unacknowledged messages are retained.
-    # Cannot be longer than 7 days or shorter than 10 minutes.
-    # Valid time units are "m" and "h". You can also compose them: "2h30m".
-    retention_duration: 168h # Defaults to 7 days
+  # How long to retain messages in backlog, from the time of publish. If
+  # retain_acked_messages is true, this duration affects the retention of
+  # acknowledged messages, otherwise only unacknowledged messages are retained.
+  # Cannot be longer than 7 days or shorter than 10 minutes.
+  # Valid time units are "m" and "h". You can also compose them: "2h30m".
+  subscription.retention_duration: 168h # Defaults to 7 days
+
+  ### JSON Configuration
+
+  # Whether to decode the Pub/Sub message as a JSON message.
+  # If the message is decoded successfully, a "json" field is added to the event with
+  # the decoded json object. If the decoding fails, the "message" field includes the
+  # plain text message payload.
+  json.enabled: false
+
+  # If this setting is enabled, Pubsubbeat adds a "error.message" and "error.key: json" key
+  # in case of JSON unmarshaling errors or when a text key is defined in the configuration
+  # but cannot be used.
+  json.add_error_key: false
 
 #================================ General ======================================
 

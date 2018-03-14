@@ -22,6 +22,10 @@ type Config struct {
 		RetainAckedMessages bool          `config:"retain_acked_messages"`
 		RetentionDuration   time.Duration `config:"retention_duration"`
 	}
+	Json struct {
+		Enabled     bool `config:"enabled"`
+		AddErrorKey bool `config:"add_error_key"`
+	}
 }
 
 var DefaultConfig = Config{}

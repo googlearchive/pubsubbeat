@@ -12,6 +12,8 @@ import (
 
 	"runtime"
 
+	"encoding/json"
+
 	"cloud.google.com/go/pubsub"
 	"github.com/rosbo/pubsubbeat/config"
 	"google.golang.org/api/option"
@@ -87,6 +89,22 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 
 		if len(m.Attributes) > 0 {
 			eventMap["attributes"] = m.Attributes
+		}
+
+		if bt.config.Json.Enabled {
+			var jsonData interface{}
+			err := json.Unmarshal(m.Data, &jsonData)
+			if err == nil {
+				eventMap["json"] = jsonData
+			} else {
+				bt.logger.Warnf("failed to decode json message: %s", err)
+				if bt.config.Json.AddErrorKey {
+					eventMap["error"] = common.MapStr{
+						"key":     "json",
+						"message": fmt.Sprintf("failed to decode json message: %s", err),
+					}
+				}
+			}
 		}
 
 		bt.client.Publish(beat.Event{

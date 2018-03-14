@@ -174,9 +174,14 @@
   fields:
     - name: message
       type: text
-      required: false
+      required: true
       description: >
         Plain text message payload
+    - name: json
+      type: object
+      required: false
+      description: >
+        JSON decoded message payload (only if `json.enabled` is set to true in your config)
     - name: message_id
       type: text
       required: true
