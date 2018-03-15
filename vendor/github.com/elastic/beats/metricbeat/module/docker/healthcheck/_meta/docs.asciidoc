@@ -1,2 +1,0 @@
-The Docker `healthcheck` metricset collects information and statistics about
-running Docker containers.
