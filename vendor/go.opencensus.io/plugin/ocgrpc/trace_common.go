@@ -17,21 +17,15 @@ package ocgrpc
 import (
 	"strings"
 
+	"google.golang.org/grpc/codes"
+
 	"go.opencensus.io/trace"
 	"go.opencensus.io/trace/propagation"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/stats"
+	"google.golang.org/grpc/status"
 )
-
-// clientTraceHandler is a an implementation of grpc.StatsHandler
-// that can be passed to grpc.Dial
-// using grpc.WithStatsHandler to enable trace context propagation and
-// automatic span creation for outgoing gRPC requests.
-type clientTraceHandler struct{}
-
-type serverTraceHandler struct{}
 
 const traceContextKey = "grpc-trace-bin"
 
@@ -39,13 +33,11 @@ const traceContextKey = "grpc-trace-bin"
 //
 // It returns ctx with the new trace span added and a serialization of the
 // SpanContext added to the outgoing gRPC metadata.
-func (c *clientTraceHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
+func (c *ClientHandler) traceTagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
 	name := "Sent" + strings.Replace(rti.FullMethodName, "/", ".", -1)
-	ctx, _ = trace.StartSpan(ctx, name)
-	traceContextBinary := propagation.Binary(trace.FromContext(ctx).SpanContext())
-	if len(traceContextBinary) == 0 {
-		return ctx
-	}
+	span := trace.NewSpan(name, trace.FromContext(ctx), c.StartOptions) // span is ended by traceHandleRPC
+	ctx = trace.WithSpan(ctx, span)
+	traceContextBinary := propagation.Binary(span.SpanContext())
 	return metadata.AppendToOutgoingContext(ctx, traceContextKey, string(traceContextBinary))
 }
 
@@ -55,45 +47,52 @@ func (c *clientTraceHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) 
 // it finds one, uses that SpanContext as the parent context of the new span.
 //
 // It returns ctx, with the new trace span added.
-func (s *serverTraceHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
+func (s *ServerHandler) traceTagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
 	md, _ := metadata.FromIncomingContext(ctx)
 	name := "Recv" + strings.Replace(rti.FullMethodName, "/", ".", -1)
-	if s := md[traceContextKey]; len(s) > 0 {
-		if parent, ok := propagation.FromBinary([]byte(s[0])); ok {
-			ctx, _ = trace.StartSpanWithRemoteParent(ctx, name, parent, trace.StartOptions{})
-			return ctx
+	traceContext := md[traceContextKey]
+	var (
+		parent     trace.SpanContext
+		haveParent bool
+	)
+	if len(traceContext) > 0 {
+		// Metadata with keys ending in -bin are actually binary. They are base64
+		// encoded before being put on the wire, see:
+		// https://github.com/grpc/grpc-go/blob/08d6261/Documentation/grpc-metadata.md#storing-binary-data-in-metadata
+		traceContextBinary := []byte(traceContext[0])
+		parent, haveParent = propagation.FromBinary(traceContextBinary)
+		if haveParent && !s.IsPublicEndpoint {
+			span := trace.NewSpanWithRemoteParent(name, parent, s.StartOptions)
+			return trace.WithSpan(ctx, span)
 		}
 	}
-	ctx, _ = trace.StartSpan(ctx, name)
-	return ctx
+	span := trace.NewSpan(name, nil, s.StartOptions)
+	if haveParent {
+		span.AddLink(trace.Link{TraceID: parent.TraceID, SpanID: parent.SpanID, Type: trace.LinkTypeChild})
+	}
+	return trace.WithSpan(ctx, span)
 }
 
-// HandleRPC processes the RPC stats, adding information to the current trace span.
-func (c *clientTraceHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
-	handleRPC(ctx, rs)
-}
-
-// HandleRPC processes the RPC stats, adding information to the current trace span.
-func (s *serverTraceHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
-	handleRPC(ctx, rs)
-}
-
-func handleRPC(ctx context.Context, rs stats.RPCStats) {
+func traceHandleRPC(ctx context.Context, rs stats.RPCStats) {
 	span := trace.FromContext(ctx)
 	// TODO: compressed and uncompressed sizes are not populated in every message.
 	switch rs := rs.(type) {
 	case *stats.Begin:
 		span.SetAttributes(
-			trace.BoolAttribute{Key: "Client", Value: rs.Client},
-			trace.BoolAttribute{Key: "FailFast", Value: rs.FailFast})
+			trace.BoolAttribute("Client", rs.Client),
+			trace.BoolAttribute("FailFast", rs.FailFast))
 	case *stats.InPayload:
 		span.AddMessageReceiveEvent(0 /* TODO: messageID */, int64(rs.Length), int64(rs.WireLength))
 	case *stats.OutPayload:
 		span.AddMessageSendEvent(0, int64(rs.Length), int64(rs.WireLength))
 	case *stats.End:
 		if rs.Error != nil {
-			code, desc := grpc.Code(rs.Error), grpc.ErrorDesc(rs.Error)
-			span.SetStatus(trace.Status{Code: int32(code), Message: desc})
+			s, ok := status.FromError(rs.Error)
+			if ok {
+				span.SetStatus(trace.Status{Code: int32(s.Code()), Message: s.Message()})
+			} else {
+				span.SetStatus(trace.Status{Code: int32(codes.Internal), Message: rs.Error.Error()})
+			}
 		}
 		span.End()
 	}

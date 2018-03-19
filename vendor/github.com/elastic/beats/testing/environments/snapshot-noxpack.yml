@@ -8,7 +8,7 @@ services:
       service: args
     build:
       context: ./docker/elasticsearch
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile-snapshot
       args:
         XPACK: 0
     environment:
@@ -24,6 +24,8 @@ services:
     build:
       context: ./docker/logstash
       dockerfile: Dockerfile
+      args:
+        XPACK: 0
     environment:
       - ES_HOST=elasticsearch
 
@@ -33,6 +35,4 @@ services:
       service: args
     build:
       context: ./docker/kibana
-      dockerfile: Dockerfile
-      args:
-        XPACK: 0
+      dockerfile: Dockerfile-snapshot

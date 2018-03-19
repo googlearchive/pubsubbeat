@@ -24,6 +24,12 @@ copy-vendor:
 	mkdir -p vendor/github.com/elastic/
 	cp -R ${BEAT_GOPATH}/src/github.com/elastic/beats vendor/github.com/elastic/
 	rm -rf vendor/github.com/elastic/beats/.git
+	rm -R vendor/github.com/elastic/beats/auditbeat
+	rm -R vendor/github.com/elastic/beats/filebeat
+	rm -R vendor/github.com/elastic/beats/heartbeat
+	rm -R vendor/github.com/elastic/beats/metricbeat
+	rm -R vendor/github.com/elastic/beats/packetbeat
+	rm -R vendor/github.com/elastic/beats/winlogbeat
 
 .PHONY: git-init
 git-init:

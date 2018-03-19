@@ -15,58 +15,46 @@
 package ocgrpc
 
 import (
+	"go.opencensus.io/trace"
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc/stats"
 )
 
-// NewClientStatsHandler enables OpenCensus stats and trace
-// for gRPC clients. Deprecated, construct a ClientHandler directly.
-func NewClientStatsHandler() stats.Handler {
-	return &ClientHandler{}
-}
-
 // ClientHandler implements a gRPC stats.Handler for recording OpenCensus stats and
 // traces. Use with gRPC clients only.
 type ClientHandler struct {
-	// NoTrace may be set to disable recording OpenCensus Spans around
-	// gRPC methods.
-	NoTrace bool
-
 	// NoStats may be set to disable recording OpenCensus Stats around each
 	// gRPC method.
 	NoStats bool
-}
 
-var (
-	clientTrace clientTraceHandler
-	clientStats clientStatsHandler
-)
+	// StartOptions allows configuring the StartOptions used to create new spans.
+	StartOptions trace.StartOptions
+}
 
 func (c *ClientHandler) HandleConn(ctx context.Context, cs stats.ConnStats) {
 	// no-op
 }
 
+// TagConn exists to satisfy gRPC stats.Handler.
 func (c *ClientHandler) TagConn(ctx context.Context, cti *stats.ConnTagInfo) context.Context {
 	// no-op
 	return ctx
 }
 
+// HandleRPC implements per-RPC tracing and stats instrumentation.
 func (c *ClientHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
-	if !c.NoTrace {
-		clientTrace.HandleRPC(ctx, rs)
-	}
+	traceHandleRPC(ctx, rs)
 	if !c.NoStats {
-		clientStats.HandleRPC(ctx, rs)
+		c.statsHandleRPC(ctx, rs)
 	}
 }
 
+// TagRPC implements per-RPC context management.
 func (c *ClientHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
-	if !c.NoTrace {
-		ctx = clientTrace.TagRPC(ctx, rti)
-	}
+	ctx = c.traceTagRPC(ctx, rti)
 	if !c.NoStats {
-		ctx = clientStats.TagRPC(ctx, rti)
+		ctx = c.statsTagRPC(ctx, rti)
 	}
 	return ctx
 }

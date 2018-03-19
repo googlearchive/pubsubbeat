@@ -1,4 +1,4 @@
-FROM tudorg/xgo-1.9.4
+FROM tudorg/xgo-1.9.2
 
 MAINTAINER Tudor Golubenco <tudor@elastic.co>
 
@@ -25,10 +25,7 @@ RUN \
 	rm `basename $WPDPACK_URL`
 
 # Load gotpl
-ADD yaml.v2 /go/src/gopkg.in/yaml.v2
-ADD gotpl /go/src/github.com/tsg/gotpl
-RUN cd /go/src/github.com/tsg/gotpl && \
-  go install
+RUN go get github.com/tsg/gotpl
 
 # Add patch for gopacket.
 ADD gopacket_pcap.patch /gopacket_pcap.patch

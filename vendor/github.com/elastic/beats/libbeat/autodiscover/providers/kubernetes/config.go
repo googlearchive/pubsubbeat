@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/elastic/beats/libbeat/autodiscover/template"
-	"github.com/elastic/beats/libbeat/common"
 )
 
 // Config for kubernetes autodiscover provider
@@ -20,8 +19,6 @@ type Config struct {
 	ExcludeLabels      []string `config:"exclude_labels"`
 	IncludeAnnotations []string `config:"include_annotations"`
 
-	Prefix    string                  `config:"prefix"`
-	Builders  []*common.Config        `config:"builders"`
 	Templates template.MapperSettings `config:"templates"`
 }
 
@@ -30,14 +27,5 @@ func defaultConfig() *Config {
 		InCluster:      true,
 		SyncPeriod:     1 * time.Second,
 		CleanupTimeout: 60 * time.Second,
-		Prefix:         "co.elastic.",
-	}
-}
-
-// Validate ensures correctness of config
-func (c *Config) Validate() {
-	// Make sure that prefix ends with a '.'
-	if c.Prefix[len(c.Prefix)-1] != '.' {
-		c.Prefix = c.Prefix + "."
 	}
 }
