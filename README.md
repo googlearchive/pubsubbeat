@@ -4,7 +4,10 @@ Pubsubbeat is an elastic [Beat](https://www.elastic.co/products/beats) for [Goog
 This Beat subscribes to a topic and ingest messages.
 
 The main motivation behind the development of this plugin is to ingest [Stackdriver Logs](https://cloud.google.com/stackdriver/)
-via the [Exported Logs](https://cloud.google.com/logging/docs/export/using_exported_logs) feature.
+via the [Exported Logs](https://cloud.google.com/logging/docs/export/using_exported_logs) feature and send them
+directly to Elasticsearch ingest nodes.
+
+This is not an officially supported Google product.
 
 ## Getting Started with Pubsubbeat
 
