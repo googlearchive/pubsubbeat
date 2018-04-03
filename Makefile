@@ -1,5 +1,5 @@
 BEAT_NAME=pubsubbeat
-BEAT_PATH=github.com/rosbo/pubsubbeat
+BEAT_PATH=github.com/GoogleCloudPlatform/pubsubbeat
 BEAT_GOPATH=$(firstword $(subst :, ,${GOPATH}))
 BEAT_URL=https://${BEAT_PATH}
 SYSTEM_TESTS=false
