@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"github.com/rosbo/pubsubbeat/beater"
+	"github.com/GoogleCloudPlatform/pubsubbeat/beater"
 
 	cmd "github.com/elastic/beats/libbeat/cmd"
 )

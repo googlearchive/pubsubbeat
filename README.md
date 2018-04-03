@@ -83,8 +83,8 @@ make clean
 To clone Pubsubbeat from the git repository, run the following commands:
 
 ```
-mkdir -p ${GOPATH}/src/github.com/rosbo/pubsubbeat
-git clone https://github.com/rosbo/pubsubbeat ${GOPATH}/src/github.com/rosbo/pubsubbeat
+mkdir -p ${GOPATH}/src/github.com/GoogleCloudPlatform/pubsubbeat
+git clone https://github.com/GoogleCloudPlatform/pubsubbeat ${GOPATH}/src/github.com/GoogleCloudPlatform/pubsubbeat
 ```
 
 

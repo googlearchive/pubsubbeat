@@ -29,7 +29,7 @@ import (
 	"encoding/json"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/rosbo/pubsubbeat/config"
+	"github.com/GoogleCloudPlatform/pubsubbeat/config"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
