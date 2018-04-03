@@ -15,7 +15,7 @@ This is not an officially supported Google product.
 
 ### Requirements
 
-* [Golang](https://golang.org/dl/) 1.7
+* [Golang](https://golang.org/dl/) 1.9
 
 ### Build
 
