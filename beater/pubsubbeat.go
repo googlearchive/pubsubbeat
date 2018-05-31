@@ -145,7 +145,7 @@ func (bt *Pubsubbeat) Stop() {
 func createPubsubClient(config *config.Config) (*pubsub.Client, error) {
 	ctx := context.Background()
 	userAgent := fmt.Sprintf(
-		"(%s %s) Elastic/Pubsubbeat", runtime.GOOS, runtime.GOARCH)
+		"Elastic/Pubsubbeat (%s %s)", runtime.GOOS, runtime.GOARCH)
 	options := []option.ClientOption{option.WithUserAgent(userAgent)}
 	if config.CredentialsFile != "" {
 		options = append(options, option.WithCredentialsFile(config.CredentialsFile))
