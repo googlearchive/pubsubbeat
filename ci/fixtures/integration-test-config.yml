@@ -6,11 +6,11 @@ pubsubbeat:
   subscription.retain_acked_messages: false
   json.enabled: false
   json.add_error_key: false
-  retention_duration: 10m
+  subscription.retention_duration: 15m
 
 output.file:
   path: "/tmp/${TESTID}"
   filename: "actual.txt"
   codec.format:
-    string: '%{[event]}'
+    string: '%{[message]}'
 
