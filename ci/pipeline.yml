@@ -41,7 +41,7 @@ resources:
     type: git
     source:
       uri: ((repository-url))
-      branch: master
+      branch: ((repository-branch))
   - name: build-timer
     type: time
     source:
