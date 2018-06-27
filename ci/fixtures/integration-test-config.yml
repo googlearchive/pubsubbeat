@@ -1,0 +1,15 @@
+pubsubbeat:
+  credentials_file: ${KEYPATH}
+  project_id: ${PROJECT_ID}
+  topic: ${TOPIC_NAME}
+  subscription.name: ${SUBSCRIPTION_NAME}
+  subscription.retain_acked_messages: false
+  json.enabled: false
+  json.add_error_key: false
+
+output.file:
+  path: "/tmp/${TESTID}"
+  filename: "actual.txt"
+  codec.format:
+    string: '%{[event]}'
+

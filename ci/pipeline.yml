@@ -1,0 +1,48 @@
+jobs:
+  - name: test
+    plan:
+    - get: src
+      trigger: true
+    - get: build-timer
+      trigger: true
+    - task: test
+      file: src/ci/tasks/unit-test.yml
+    - task: integration-test
+      file: src/ci/tasks/integration-test.yml
+      params:
+        PROJECT_ID: ((integration-test-project-id))
+        TOPIC_NAME: ((integration-test-topic))
+        SUBSCRIPTION_NAME: ((integration-test-subscription))
+        SERVICE_ACCOUNT: ((integration-test-service-account-json))
+  - name: build
+    plan:
+    - get: src
+      passed: [test]
+      trigger: true
+    - task: build
+      file: src/ci/tasks/build.yml
+  - name: build-latest
+    plan:
+    - get: src
+      passed: [test]
+      trigger: true
+    - task: build
+      file: src/ci/tasks/build-latest.yml
+  - name: build-releases
+    plan:
+    - get: src
+      passed: [test]
+      trigger: true
+    - task: build-releases
+      file: src/ci/tasks/build-releases.yml
+
+resources:
+  - name: src
+    type: git
+    source:
+      uri: ((repository-url))
+      branch: master
+  - name: build-timer
+    type: time
+    source:
+      interval: ((minimum-build-interval))
