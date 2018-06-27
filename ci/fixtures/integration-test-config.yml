@@ -6,6 +6,7 @@ pubsubbeat:
   subscription.retain_acked_messages: false
   json.enabled: false
   json.add_error_key: false
+  retention_duration: 10m
 
 output.file:
   path: "/tmp/${TESTID}"
