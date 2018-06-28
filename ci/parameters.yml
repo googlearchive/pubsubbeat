@@ -1,0 +1,17 @@
+# Repository Settings
+
+repository-url: https://github.com/GoogleCloudPlatform/pubsubbeat
+repository-branch: master
+
+# Build Settings
+
+# The build will be triggered this often even if no changes are detected in the git repository
+minimum-build-interval: 24h
+
+# Integration Test Configuration
+# all of the resources MUST exist prior to execution
+integration-test-project-id: ((integration-test-project-id))
+integration-test-topic: pubsubbeat-integration-topic
+integration-test-subscription: pubsubbeat-integration-subscription
+integration-test-service-account-json: ((integration-test-service-account-json))
+
