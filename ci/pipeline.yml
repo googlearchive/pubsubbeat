@@ -1,5 +1,6 @@
 jobs:
   - name: test
+    serial: true
     plan:
     - get: src
       trigger: true
@@ -15,6 +16,7 @@ jobs:
         SUBSCRIPTION_NAME: ((integration-test-subscription))
         SERVICE_ACCOUNT: ((integration-test-service-account-json))
   - name: build
+    build_logs_to_retain: 50
     plan:
     - get: src
       passed: [test]
@@ -22,6 +24,7 @@ jobs:
     - task: build
       file: src/ci/tasks/build.yml
   - name: build-latest
+    build_logs_to_retain: 100
     plan:
     - get: src
       passed: [test]
@@ -29,6 +32,8 @@ jobs:
     - task: build
       file: src/ci/tasks/build-latest.yml
   - name: build-releases
+    build_logs_to_retain: 50
+    interruptible: true
     plan:
     - get: src
       passed: [test]
