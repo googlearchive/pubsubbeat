@@ -159,6 +159,11 @@ func createPubsubClient(config *config.Config) (*pubsub.Client, error) {
 }
 
 func getOrCreateSubscription(client *pubsub.Client, config *config.Config) (*pubsub.Subscription, error) {
+	if !config.Subscription.Create {
+		subscription := client.Subscription(config.Subscription.Name)
+		return subscription, nil
+	}
+
 	topic := client.Topic(config.Topic)
 	ctx := context.Background()
 
