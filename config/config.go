@@ -32,6 +32,7 @@ type Config struct {
 		Name                string        `config:"name" validate:"required"`
 		RetainAckedMessages bool          `config:"retain_acked_messages"`
 		RetentionDuration   time.Duration `config:"retention_duration"`
+		Create              bool          `config:"create"`
 	}
 	Json struct {
 		Enabled     bool `config:"enabled"`
@@ -39,7 +40,13 @@ type Config struct {
 	}
 }
 
-var DefaultConfig = Config{}
+func GetDefaultConfig() Config {
+	config := Config{}
+	config.Subscription.Create = true
+	return config
+}
+
+var DefaultConfig = GetDefaultConfig()
 
 func GetAndValidateConfig(cfg *common.Config) (*Config, error) {
 	c := DefaultConfig
