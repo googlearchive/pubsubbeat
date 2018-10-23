@@ -21,9 +21,11 @@ pubsubbeat:
   # The Pub/Sub topic name. You must first create this topic.
   topic: my-topic
 
-  # The Pub/Sub subscription name. If the subscription does not exist,
-  # Pubsubbeat will attempt to create the subscription.
+  # The Pub/Sub subscription name.
   subscription.name: my-subscription
+
+  # Attempt to create the subscription.
+  subscription.create: true # Defaults to true
 
   # The settings below are used only if the Beat creates the subscription.
 
