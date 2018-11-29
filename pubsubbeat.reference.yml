@@ -53,6 +53,28 @@ pubsubbeat:
   # but cannot be used.
   json.add_error_key: false
 
+  # If this option is set to true and json.enabled is set to true, the json
+  # fields are stored as top-level fields in the output document instead of
+  # being grouped under a json sub-dictionary. Default is false.
+  #json.fields_under_root: false
+
+  # If this option is set to true and json.enabled is set to true, the @timestamp
+  # value in the in the json fields will be used as the timestamp instead of
+  # using time.Now(). A timestamp format must be supplied via
+  # json_fields_timestamp_format:. Default is false.
+  #json.fields_use_timestamp: false
+
+  # If this option is set and json_fields_use_timestamp is set to true,
+  # the provided value will be used as the field for time to be converted.
+  # Default "@timestamp"
+  #json.fields_timestamp_name: "@timestamp"
+
+  # If this option is set to true and json_fields_use_timestamp is set to true,
+  # the provided value will be used as the golang time format to attempt to
+  # convert the json timestamp to the published time. The format is golang time
+  # format.
+  #json.fields_timestamp_format: ""
+
 #================================ General ======================================
 
 # The name of the shipper that publishes the network data. It can be used to group

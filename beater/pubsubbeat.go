@@ -94,6 +94,7 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 
 	err = bt.subscription.Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
 		// This callback is invoked concurrently by multiple goroutines
+		var datetime time.Time
 		eventMap := common.MapStr{
 			"type":         b.Info.Name,
 			"message_id":   m.ID,
@@ -106,23 +107,42 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 		}
 
 		if bt.config.Json.Enabled {
-			var jsonData interface{}
-			err := json.Unmarshal(m.Data, &jsonData)
-			if err == nil {
-				eventMap["json"] = jsonData
+			var unmarshalErr error
+			if bt.config.Json.FieldsUnderRoot {
+				unmarshalErr = json.Unmarshal(m.Data, &eventMap)
+				if unmarshalErr == nil && bt.config.Json.FieldsUseTimestamp {
+					var timeErr error
+					timestamp := eventMap[bt.config.Json.FieldsTimestampName]
+					delete(eventMap, bt.config.Json.FieldsTimestampName)
+					datetime, timeErr = time.Parse(bt.config.Json.FieldsTimestampFormat, timestamp.(string))
+					if timeErr != nil {
+						bt.logger.Errorf("Failed to format timestamp string as time. Using time.Now(): %s", timeErr)
+					}
+				}
 			} else {
-				bt.logger.Warnf("failed to decode json message: %s", err)
+				var jsonData interface{}
+				unmarshalErr = json.Unmarshal(m.Data, &jsonData)
+				if unmarshalErr == nil {
+					eventMap["json"] = jsonData
+				}
+			}
+
+			if unmarshalErr != nil {
+				bt.logger.Warnf("failed to decode json message: %s", unmarshalErr)
 				if bt.config.Json.AddErrorKey {
 					eventMap["error"] = common.MapStr{
 						"key":     "json",
-						"message": fmt.Sprintf("failed to decode json message: %s", err),
+						"message": fmt.Sprintf("failed to decode json message: %s", unmarshalErr),
 					}
 				}
 			}
 		}
 
+		if datetime.IsZero() {
+			datetime = time.Now()
+		}
 		bt.client.Publish(beat.Event{
-			Timestamp: time.Now(),
+			Timestamp: datetime,
 			Fields:    eventMap,
 		})
 
