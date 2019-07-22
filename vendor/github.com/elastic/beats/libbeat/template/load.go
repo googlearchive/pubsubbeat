@@ -14,7 +14,7 @@ import (
 type ESClient interface {
 	LoadJSON(path string, json map[string]interface{}) ([]byte, error)
 	Request(method, path string, pipeline string, params map[string]string, body interface{}) (int, []byte, error)
-	GetVersion() string
+	GetVersion() common.Version
 }
 
 type Loader struct {
@@ -42,8 +42,9 @@ func NewLoader(cfg *common.Config, client ESClient, beatInfo beat.Info) (*Loader
 // In case the template is not already loaded or overwriting is enabled, the
 // template is written to index
 func (l *Loader) Load() error {
-
-	tmpl, err := New(l.beatInfo.Version, l.beatInfo.IndexPrefix, l.client.GetVersion(), l.config)
+	
+	esVersion := l.client.GetVersion()
+	tmpl, err := New(l.beatInfo.Version, l.beatInfo.IndexPrefix, esVersion.String(), l.config)
 	if err != nil {
 		return fmt.Errorf("error creating template instance: %v", err)
 	}
@@ -52,7 +53,7 @@ func (l *Loader) Load() error {
 	exists := l.CheckTemplate(tmpl.GetName())
 	if !exists || l.config.Overwrite {
 
-		logp.Info("Loading template for Elasticsearch version: %s", l.client.GetVersion())
+		logp.Info("Loading template for Elasticsearch version: %s", esVersion.String())
 
 		if l.config.Overwrite {
 			logp.Info("Existing template will be overwritten, as overwrite is enabled.")

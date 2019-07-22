@@ -158,16 +158,17 @@ func (t *Template) generate(properties common.MapStr, dynamicTemplates []common.
 	indexSettings.DeepUpdate(t.settings.Index)
 
 	var mappingName string
-	if t.esVersion.Major >= 6 {
-		mappingName = "doc"
-	} else {
+	if t.esVersion.Major < 6 {
 		mappingName = "_default_"
+	} else if t.esVersion.Major == 6 {
+		mappingName = "doc"
 	}
-
-	// Load basic structure
-	basicStructure := common.MapStr{
-		"mappings": common.MapStr{
-			mappingName: common.MapStr{
+	var basicStructure common.MapStr
+	// Load bassic structure
+	if t.esVersion.Major >= 7 {
+		// ES version >= 7 removed mapping type name 
+		basicStructure = common.MapStr{
+			"mappings": common.MapStr{
 				"_meta": common.MapStr{
 					"version": t.beatVersion.String(),
 				},
@@ -175,12 +176,30 @@ func (t *Template) generate(properties common.MapStr, dynamicTemplates []common.
 				"dynamic_templates": dynamicTemplates,
 				"properties":        properties,
 			},
-		},
-		"order": 1,
-		"settings": common.MapStr{
-			"index": indexSettings,
-		},
+			"order": 1,
+			"settings": common.MapStr{
+				"index": indexSettings,
+			},
+		}
+	} else {
+		basicStructure = common.MapStr{
+			"mappings": common.MapStr{
+				mappingName: common.MapStr{
+					"_meta": common.MapStr{
+						"version": t.beatVersion.String(),
+					},
+					"date_detection":    defaultDateDetection,
+					"dynamic_templates": dynamicTemplates,
+					"properties":        properties,
+				},
+			},
+			"order": 1,
+			"settings": common.MapStr{
+				"index": indexSettings,
+			},
+		}
 	}
+	
 
 	if len(t.settings.Source) > 0 {
 		key := fmt.Sprintf("mappings.%s._source", mappingName)

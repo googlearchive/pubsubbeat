@@ -35,11 +35,11 @@ func NewElasticsearchLoader(cfg *common.Config, dashboardsConfig *Config, msgOut
 	loader := ElasticsearchLoader{
 		client:       esClient,
 		config:       dashboardsConfig,
-		version:      version,
+		version:      version.String(),
 		msgOutputter: msgOutputter,
 	}
 
-	loader.statusMsg("Initialize the Elasticsearch %s loader", version)
+	loader.statusMsg("Initialize the Elasticsearch %s loader", version.String())
 
 	return &loader, nil
 }
