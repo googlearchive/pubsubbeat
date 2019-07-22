@@ -70,4 +70,3 @@ func TestTypelessTemplate(t *testing.T) {
 	assert.NotContains(t, basicStructure, "doc")
 	assert.NotContains(t, basicStructure, "_default_")
 }
-

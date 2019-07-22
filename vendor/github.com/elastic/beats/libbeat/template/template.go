@@ -199,7 +199,6 @@ func (t *Template) generate(properties common.MapStr, dynamicTemplates []common.
 			},
 		}
 	}
-	
 
 	if len(t.settings.Source) > 0 {
 		key := fmt.Sprintf("mappings.%s._source", mappingName)
