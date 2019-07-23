@@ -8,6 +8,13 @@ language: go
 go:
   - 1.9.4
 
+matrix:
+  include: 
+    - language: python 
+      python: 3.6
+      script: 
+      - apt install python3-pip; pip3 install virtualenv
+
 os:
   - linux
   - osx
@@ -20,11 +27,6 @@ env:
   global:
     # Cross-compile for amd64 only to speed up testing.
     - GOX_FLAGS="-arch amd64"
-
-addons:
-  apt:
-    packages:
-      - python-virtualenv
 
 before_install:
   - umask 022
