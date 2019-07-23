@@ -13,7 +13,8 @@ matrix:
     - language: python 
       python: 3.6
       script: 
-      - apt install python3-pip; pip3 install virtualenv
+      - sudo apt install python3-pip 
+      - pip3 install virtualenv
 
 os:
   - linux
