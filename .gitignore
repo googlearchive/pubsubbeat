@@ -12,7 +12,7 @@ logs/
 .idea/
 .project
 *.iml
-
+*.exe
 # Python
 *.pyc
 

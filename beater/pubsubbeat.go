@@ -29,7 +29,7 @@ import (
 	"encoding/json"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/GoogleCloudPlatform/pubsubbeat/config"
+	"github.com/logrhythm/pubsubbeat/config"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -198,7 +198,7 @@ func getOrCreateSubscription(client *pubsub.Client, config *config.Config) (*pub
 		subscription = client.Subscription(config.Subscription.Name)
 	} else if ok && st.Code() == codes.NotFound {
 		return nil, fmt.Errorf("topic %q does not exists", config.Topic)
-	} else {
+	} else if !ok {
 		return nil, fmt.Errorf("fail to create subscription: %v", err)
 	}
 

@@ -20,7 +20,7 @@ import (
 	"flag"
 	"testing"
 
-	"github.com/GoogleCloudPlatform/pubsubbeat/cmd"
+	"github.com/logrhythm/pubsubbeat/cmd"
 )
 
 var systemTest *bool

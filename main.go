@@ -17,7 +17,7 @@ package main
 import (
 	"os"
 
-	"github.com/GoogleCloudPlatform/pubsubbeat/cmd"
+	"github.com/logrhythm/pubsubbeat/cmd"
 )
 
 func main() {
