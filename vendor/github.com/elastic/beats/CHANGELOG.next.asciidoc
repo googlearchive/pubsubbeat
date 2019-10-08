@@ -1,0 +1,122 @@
+// Use these for links to issue and pulls. Note issues and pulls redirect one to
+// each other on Github, so don't worry too much on using the right prefix.
+:issue: https://github.com/elastic/beats/issues/
+:pull: https://github.com/elastic/beats/pull/
+
+=== Beats version HEAD
+https://github.com/elastic/beats/compare/v7.0.0-alpha2...master[Check the HEAD diff]
+
+==== Breaking changes
+
+*Affecting all Beats*
+
+- Update to Golang 1.12.1. {pull}11330[11330]
+- Disable Alibaba Cloud and Tencent Cloud metadata providers by default. {pull}13812[12812]
+
+*Auditbeat*
+
+
+*Filebeat*
+
+
+*Heartbeat*
+
+
+*Journalbeat*
+
+*Metricbeat*
+
+- kubernetes.container.cpu.limit.cores and kubernetes.container.cpu.requests.cores are now floats. {issue}11975[11975]
+
+*Packetbeat*
+
+
+*Winlogbeat*
+
+*Functionbeat*
+
+==== Bugfixes
+
+*Affecting all Beats*
+
+- Fix a race condition with the Kafka pipeline client, it is possible that `Close()` get called before `Connect()` . {issue}11945[11945]
+
+*Auditbeat*
+
+
+*Filebeat*
+
+
+*Heartbeat*
+
+
+*Journalbeat*
+
+
+*Metricbeat*
+
+- Ignore prometheus untyped metrics with NaN value. {issue}13750[13750] {pull}13790[13790]
+
+*Packetbeat*
+
+
+*Winlogbeat*
+
+
+*Functionbeat*
+
+
+==== Added
+
+*Affecting all Beats*
+
+- Decouple Debug logging from fail_on_error logic for rename, copy, truncate processors {pull}12451[12451]
+- Allow a beat to ship monitoring data directly to an Elasticsearch monitoring cluster. {pull}9260[9260]
+- Add `providers` setting to `add_cloud_metadata` processor. {pull}13812[13812]
+
+*Auditbeat*
+
+
+*Filebeat*
+
+- `container` and `docker` inputs now support reading of labels and env vars written by docker JSON file logging driver. {issue}8358[8358]
+- Use correct OS path separator in `add_kubernetes_metadata` to support Windows nodes. {pull}9205[9205]
+
+*Heartbeat*
+
+
+*Journalbeat*
+
+*Metricbeat*
+
+
+*Packetbeat*
+
+*Functionbeat*
+
+
+*Winlogbeat*
+
+
+==== Deprecated
+
+*Affecting all Beats*
+
+*Filebeat*
+
+
+*Heartbeat*
+
+*Journalbeat*
+
+*Metricbeat*
+
+*Packetbeat*
+
+*Winlogbeat*
+
+*Functionbeat*
+
+==== Known Issue
+
+*Journalbeat*

@@ -1,293 +1,305 @@
+// Licensed to Elasticsearch B.V. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. Elasticsearch B.V. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package kubernetes
 
 import (
 	"context"
-	"errors"
-	"io"
-	"sync"
+	"fmt"
 	"time"
 
-	"github.com/elastic/beats/libbeat/common/bus"
-	"github.com/elastic/beats/libbeat/logp"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
-	"github.com/ericchiang/k8s"
-	corev1 "github.com/ericchiang/k8s/api/v1"
+	"github.com/elastic/beats/libbeat/logp"
 )
 
-// Max back off time for retries
-const maxBackoff = 30 * time.Second
+const (
+	add    = "add"
+	update = "update"
+	delete = "delete"
+)
 
-// Watcher reads Kubernetes events and keeps a list of known pods
+var (
+	accessor = meta.NewAccessor()
+)
+
+// Watcher watches Kubernetes resources events
 type Watcher interface {
-	// Start watching Kubernetes API for new containers
+	// Start watching Kubernetes API for new events after resources were listed
 	Start() error
 
-	// Stop watching Kubernetes API for new containers
+	// Stop watching Kubernetes API for new events
 	Stop()
 
-	// ListenStart returns a bus listener to receive pod started events, with a `pod` key holding it
-	ListenStart() bus.Listener
-
-	// ListenUpdate returns a bus listener to receive pod updated events, with a `pod` key holding it
-	ListenUpdate() bus.Listener
-
-	// ListenStop returns a bus listener to receive pod stopped events, with a `pod` key holding it
-	ListenStop() bus.Listener
+	// AddEventHandler add event handlers for corresponding event type watched
+	AddEventHandler(ResourceEventHandler)
 }
 
-type podWatcher struct {
-	sync.RWMutex
-	client              Client
-	syncPeriod          time.Duration
-	cleanupTimeout      time.Duration
-	nodeFilter          k8s.Option
-	lastResourceVersion string
-	ctx                 context.Context
-	stop                context.CancelFunc
-	bus                 bus.Bus
-	pods                map[string]*Pod      // pod id -> Pod
-	deleted             map[string]time.Time // deleted annotations key -> last access time
+// WatchOptions controls watch behaviors
+type WatchOptions struct {
+	// SyncTimeout is a timeout for listing historical resources
+	SyncTimeout time.Duration
+	// Node is used for filtering watched resource to given node, use "" for all nodes
+	Node string
+	// Namespace is used for filtering watched resource to given namespace, use "" for all namespaces
+	Namespace string
 }
 
-// Client for Kubernetes interface
-type Client interface {
-	ListPods(ctx context.Context, namespace string, options ...k8s.Option) (*corev1.PodList, error)
-	WatchPods(ctx context.Context, namespace string, options ...k8s.Option) (*k8s.CoreV1PodWatcher, error)
+type item struct {
+	object interface{}
+	state  string
 }
 
-// NewWatcher initializes the watcher client to provide a local state of
-// pods from the cluster (filtered to the given host)
-func NewWatcher(client Client, syncPeriod, cleanupTimeout time.Duration, host string) Watcher {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &podWatcher{
-		client:              client,
-		cleanupTimeout:      cleanupTimeout,
-		syncPeriod:          syncPeriod,
-		nodeFilter:          k8s.QueryParam("fieldSelector", "spec.nodeName="+host),
-		lastResourceVersion: "0",
-		ctx:                 ctx,
-		stop:                cancel,
-		pods:                make(map[string]*Pod),
-		deleted:             make(map[string]time.Time),
-		bus:                 bus.New("kubernetes"),
+type watcher struct {
+	client   kubernetes.Interface
+	informer cache.SharedInformer
+	store    cache.Store
+	queue    workqueue.RateLimitingInterface
+	ctx      context.Context
+	stop     context.CancelFunc
+	handler  ResourceEventHandler
+	logger   *logp.Logger
+}
+
+func tweakOptions(options *metav1.ListOptions, opt WatchOptions) {
+	if opt.Node != "" {
+		options.FieldSelector = "spec.nodeName=" + opt.Node
 	}
 }
 
-func (p *podWatcher) syncPods() error {
-	logp.Info("kubernetes: %s", "Performing a pod sync")
-	pods, err := p.client.ListPods(
-		p.ctx,
-		"",
-		p.nodeFilter,
-		k8s.ResourceVersion(p.lastResourceVersion))
+// NewWatcher initializes the watcher client to provide a events handler for
+// resource from the cluster (filtered to the given node)
+func NewWatcher(client kubernetes.Interface, resource Resource, opts WatchOptions) (Watcher, error) {
+	var informer cache.SharedInformer
+	var store cache.Store
+	var queue workqueue.RateLimitingInterface
+	var objType string
 
-	if err != nil {
-		return err
-	}
-
-	p.Lock()
-	for _, apiPod := range pods.Items {
-		pod := GetPod(apiPod)
-		p.pods[pod.Metadata.UID] = pod
-	}
-	p.Unlock()
-
-	// Emit all start events (avoid blocking if the bus get's blocked)
-	go func() {
-		for _, pod := range p.pods {
-			p.bus.Publish(bus.Event{
-				"start": true,
-				"pod":   pod,
-			})
+	var listwatch *cache.ListWatch
+	switch resource.(type) {
+	case *Pod:
+		p := client.CoreV1().Pods(opts.Namespace)
+		listwatch = &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				tweakOptions(&options, opts)
+				return p.List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				tweakOptions(&options, opts)
+				return p.Watch(options)
+			},
 		}
-	}()
 
-	// Store last version
-	p.lastResourceVersion = pods.Metadata.GetResourceVersion()
+		objType = "pod"
+	case *Event:
+		e := client.CoreV1().Events(opts.Namespace)
+		listwatch = &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return e.List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return e.Watch(options)
+			},
+		}
 
-	logp.Info("kubernetes: %s", "Pod sync done")
-	return nil
+		objType = "event"
+	case *Node:
+		n := client.CoreV1().Nodes()
+		listwatch = &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return n.List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return n.Watch(options)
+			},
+		}
+
+		objType = "node"
+	case *Deployment:
+		d := client.AppsV1().Deployments(opts.Namespace)
+		listwatch = &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return d.List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return d.Watch(options)
+			},
+		}
+
+		objType = "deployment"
+	case *ReplicaSet:
+		rs := client.AppsV1().ReplicaSets(opts.Namespace)
+		listwatch = &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return rs.List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return rs.Watch(options)
+			},
+		}
+
+		objType = "replicaset"
+	case *StatefulSet:
+		ss := client.AppsV1().ReplicaSets(opts.Namespace)
+		listwatch = &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return ss.List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return ss.Watch(options)
+			},
+		}
+
+		objType = "statefulset"
+	default:
+		return nil, fmt.Errorf("unsupported resource type for watching %T", resource)
+	}
+
+	informer = cache.NewSharedInformer(listwatch, resource, opts.SyncTimeout)
+	store = informer.GetStore()
+	queue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), objType)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	w := &watcher{
+		client:   client,
+		informer: informer,
+		store:    store,
+		queue:    queue,
+		ctx:      ctx,
+		stop:     cancel,
+		logger:   logp.NewLogger("kubernetes"),
+	}
+
+	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(o interface{}) {
+			w.enqueue(o, add)
+		},
+		DeleteFunc: func(o interface{}) {
+			w.enqueue(o, delete)
+		},
+		UpdateFunc: func(o, n interface{}) {
+			old, _ := accessor.ResourceVersion(o.(runtime.Object))
+			new, _ := accessor.ResourceVersion(n.(runtime.Object))
+
+			// Only enqueue changes that have a different resource versions to avoid processing resyncs.
+			if old != new {
+				w.enqueue(n, update)
+			}
+		},
+	})
+
+	return w, nil
+}
+
+// enqueue takes the most recent object that was received, figures out the namespace/name of the object
+// and adds it to the work queue for processing.
+func (w *watcher) enqueue(obj interface{}, state string) {
+	// DeletionHandlingMetaNamespaceKeyFunc that we get a key only if the resource's state is not Unknown.
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		return
+	}
+
+	w.queue.Add(&item{key, state})
+}
+
+// AddEventHandler adds a resource handler to process each request that is coming into the watcher
+func (w *watcher) AddEventHandler(h ResourceEventHandler) {
+	w.handler = h
 }
 
 // Start watching pods
-func (p *podWatcher) Start() error {
+func (w *watcher) Start() error {
+	go w.informer.Run(w.ctx.Done())
 
-	// Make sure that events don't flow into the annotator before informer is fully set up
-	// Sync initial state:
-	synced := make(chan struct{})
-	go func() {
-		p.syncPods()
-		close(synced)
-	}()
-
-	select {
-	case <-time.After(p.syncPeriod):
-		p.Stop()
-		return errors.New("Timeout while doing initial Kubernetes pods sync")
-	case <-synced:
-		// Watch for new changes
-		go p.watch()
-		go p.cleanupWorker()
-		return nil
+	if !cache.WaitForCacheSync(w.ctx.Done(), w.informer.HasSynced) {
+		return fmt.Errorf("kubernetes informer unable to sync cache")
 	}
+
+	w.logger.Debugf("cache sync done")
+
+	//TODO: Do we run parallel workers for this? It is useful when we run metricbeat as one instance per cluster?
+
+	// Wrap the process function with wait.Until so that if the controller crashes, it starts up again after a second.
+	go wait.Until(func() {
+		for w.process(w.ctx) {
+		}
+	}, time.Second*1, w.ctx.Done())
+
+	return nil
 }
 
-func (p *podWatcher) watch() {
-	// Failures counter, do exponential backoff on retries
-	var failures uint
+// process gets the top of the work queue and processes the object that is received.
+func (w *watcher) process(ctx context.Context) bool {
+	keyObj, quit := w.queue.Get()
+	if quit {
+		return false
+	}
 
-	for {
-		logp.Info("kubernetes: %s", "Watching API for pod events")
-		watcher, err := p.client.WatchPods(p.ctx, "", p.nodeFilter, k8s.ResourceVersion(p.lastResourceVersion))
+	err := func(obj interface{}) error {
+		defer w.queue.Done(obj)
+
+		var entry *item
+		var ok bool
+		if entry, ok = obj.(*item); !ok {
+			w.queue.Forget(obj)
+			utilruntime.HandleError(fmt.Errorf("expected *item in workqueue but got %#v", obj))
+			return nil
+		}
+
+		key := entry.object.(string)
+
+		o, exists, err := w.store.GetByKey(key)
 		if err != nil {
-			//watch pod failures should be logged and gracefully failed over as metadata retrieval
-			//should never stop.
-			logp.Err("kubernetes: Watching API error %v", err)
-			backoff(failures)
-			failures++
-			continue
+			return nil
+		}
+		if !exists {
+			return nil
 		}
 
-		for {
-			_, apiPod, err := watcher.Next()
-			if err != nil {
-				logp.Err("kubernetes: Watching API error %v", err)
-
-				// In case of EOF, stop watching and restart the process
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					watcher.Close()
-					backoff(failures)
-					failures++
-					break
-				}
-
-				// Otherwise, this is probably an unknown event (unmarshal error), ignore it
-				continue
-			}
-
-			// Update last resource version and reset failure counter
-			p.lastResourceVersion = apiPod.Metadata.GetResourceVersion()
-			failures = 0
-
-			pod := GetPod(apiPod)
-			if pod.Metadata.DeletionTimestamp != "" {
-				// Pod deleted
-				p.Lock()
-				p.deleted[pod.Metadata.UID] = time.Now()
-				p.Unlock()
-
-			} else {
-				if p.Pod(pod.Metadata.UID) != nil {
-					// Pod updated
-					p.Lock()
-					p.pods[pod.Metadata.UID] = pod
-					// un-delete if it's flagged (in case of update or recreation)
-					delete(p.deleted, pod.Metadata.UID)
-					p.Unlock()
-
-					p.bus.Publish(bus.Event{
-						"update": true,
-						"pod":    pod,
-					})
-
-				} else {
-					// Pod added
-					p.Lock()
-					p.pods[pod.Metadata.UID] = pod
-					// un-delete if it's flagged (in case of update or recreation)
-					delete(p.deleted, pod.Metadata.UID)
-					p.Unlock()
-
-					p.bus.Publish(bus.Event{
-						"start": true,
-						"pod":   pod,
-					})
-				}
-			}
+		switch entry.state {
+		case add:
+			w.handler.OnAdd(o)
+		case update:
+			w.handler.OnUpdate(o)
+		case delete:
+			w.handler.OnDelete(o)
 		}
-	}
-}
 
-func backoff(failures uint) {
-	wait := 1 << failures * time.Second
-	if wait > maxBackoff {
-		wait = maxBackoff
-	}
-	time.Sleep(wait)
-}
+		return nil
+	}(keyObj)
 
-// Check annotations flagged as deleted for their last access time, fully delete
-// the ones older than p.cleanupTimeout
-func (p *podWatcher) cleanupWorker() {
-	for {
-		// Wait a full period
-		time.Sleep(p.cleanupTimeout)
-
-		select {
-		case <-p.ctx.Done():
-			return
-		default:
-			// Check entries for timeout
-			var toDelete []string
-			timeout := time.Now().Add(-p.cleanupTimeout)
-			p.RLock()
-			for key, lastSeen := range p.deleted {
-				if lastSeen.Before(timeout) {
-					logp.Debug("kubernetes", "Removing container %s after cool down timeout", key)
-					toDelete = append(toDelete, key)
-				}
-			}
-			p.RUnlock()
-
-			// Delete timed out entries:
-			for _, key := range toDelete {
-				p.bus.Publish(bus.Event{
-					"stop": true,
-					"pod":  p.Pod(key),
-				})
-			}
-
-			p.Lock()
-			for _, key := range toDelete {
-				delete(p.deleted, key)
-				delete(p.pods, key)
-			}
-			p.Unlock()
-		}
-	}
-}
-
-func (p *podWatcher) Pod(uid string) *Pod {
-	p.RLock()
-	pod := p.pods[uid]
-	_, deleted := p.deleted[uid]
-	p.RUnlock()
-
-	// Update deleted last access
-	if deleted {
-		p.Lock()
-		p.deleted[uid] = time.Now()
-		p.Unlock()
+	if err != nil {
+		utilruntime.HandleError(err)
+		return true
 	}
 
-	return pod
+	return true
 }
 
-// ListenStart returns a bus listener to receive pod started events, with a `pod` key holding it
-func (p *podWatcher) ListenStart() bus.Listener {
-	return p.bus.Subscribe("start")
-}
-
-// ListenStop returns a bus listener to receive pod stopped events, with a `pod` key holding it
-func (p *podWatcher) ListenStop() bus.Listener {
-	return p.bus.Subscribe("stop")
-}
-
-// ListenUpdate returns a bus listener to receive updated pod events, with a `pod` key holding it
-func (p *podWatcher) ListenUpdate() bus.Listener {
-	return p.bus.Subscribe("update")
-}
-
-func (p *podWatcher) Stop() {
-	p.stop()
+func (w *watcher) Stop() {
+	w.queue.ShutDown()
+	w.stop()
 }
