@@ -198,7 +198,7 @@ func getOrCreateSubscription(client *pubsub.Client, config *config.Config) (*pub
 		subscription = client.Subscription(config.Subscription.Name)
 	} else if ok && st.Code() == codes.NotFound {
 		return nil, fmt.Errorf("topic %q does not exists", config.Topic)
-	} else {
+	} else if err != nil {
 		return nil, fmt.Errorf("fail to create subscription: %v", err)
 	}
 
