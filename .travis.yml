@@ -1,5 +1,5 @@
 sudo: required
-dist: trusty
+dist: xenial
 services:
   - docker
 
@@ -28,6 +28,7 @@ addons:
 
 before_install:
   - umask 022
+  - sudo pip install PyYAML==3.13
   # Redo the travis setup but with the elastic/libbeat path. This is needed so the package path is correct
   - mkdir -p $HOME/gopath/src/github.com/GoogleCloudPlatform/pubsubbeat/
   - rsync -az ${TRAVIS_BUILD_DIR}/ $HOME/gopath/src/github.com/GoogleCloudPlatform/pubsubbeat/
