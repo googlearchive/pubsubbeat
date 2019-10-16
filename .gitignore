@@ -18,3 +18,5 @@ logs/
 
 # Backup files
 *~
+
+/vendor
