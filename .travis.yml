@@ -1,30 +1,18 @@
 sudo: required
 dist: trusty
-services:
-  - docker
 
 language: go
 
 go:
-  - 1.9.4
+  - 1.12.0
 
 os:
   - linux
-  - osx
 
 env:
   matrix:
-    - TARGETS="check"
-    - TARGETS="testsuite"
-
-  global:
-    # Cross-compile for amd64 only to speed up testing.
-    - GOX_FLAGS="-arch amd64"
-
-addons:
-  apt:
-    packages:
-      - python-virtualenv
+    - TARGETS="test"
+    - TARGETS="build"
 
 before_install:
   - umask 022
@@ -40,5 +28,3 @@ install:
 script:
   - make $TARGETS
 
-after_success:
-  # Copy full.cov to coverage.txt because codecov.io requires this file
