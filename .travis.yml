@@ -1,18 +1,7 @@
-sudo: required
-dist: bionic
-
 language: go
 
 go:
-  - "1.12.0"
-
-os:
-  - linux
-
-env:
-  matrix:
-    - TARGETS="test"
-    - TARGETS="build"
+  - 1.12.x
 
 before_install:
   - umask 022
@@ -22,8 +11,6 @@ before_install:
   - export TRAVIS_BUILD_DIR=$HOME/gopath/src/github.com/GoogleCloudPlatform/pubsubbeat/
   - cd $HOME/gopath/src/github.com/GoogleCloudPlatform/pubsubbeat/
 
-install:
-  - true
-
 script:
-  - make $TARGETS
+  - make test
+  - make build
