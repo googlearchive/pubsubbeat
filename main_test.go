@@ -28,8 +28,12 @@ var systemTest *bool
 func init() {
 	systemTest = flag.Bool("systemTest", false, "Set to true when running system tests")
 
-	cmd.RootCmd.PersistentFlags().AddGoFlag(flag.CommandLine.Lookup("systemTest"))
-	cmd.RootCmd.PersistentFlags().AddGoFlag(flag.CommandLine.Lookup("test.coverprofile"))
+	if f := flag.CommandLine.Lookup("systemTest"); f != nil {
+		cmd.RootCmd.PersistentFlags().AddGoFlag(f)
+	}
+	if f := flag.CommandLine.Lookup("test.coverprofile"); f != nil {
+		cmd.RootCmd.PersistentFlags().AddGoFlag(f)
+	}
 }
 
 // Test started when the test binary is started. Only calls main.
