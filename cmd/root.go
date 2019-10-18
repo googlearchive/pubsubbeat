@@ -25,7 +25,4 @@ import (
 var Name = "pubsubbeat"
 
 // RootCmd to handle beats cli
-// var RootCmd = cmd.GenRootCmd(Name, "", beater.New)
-
-// RootCmd to handle beats cli
 var RootCmd = cmd.GenRootCmdWithSettings(beater.New, instance.Settings{Name: Name})
