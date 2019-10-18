@@ -1,8 +1,26 @@
+// Licensed to Elasticsearch B.V. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. Elasticsearch B.V. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package actions
 
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -12,6 +30,7 @@ import (
 	"github.com/elastic/beats/libbeat/common/jsontransform"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/libbeat/processors"
+	"github.com/elastic/beats/libbeat/processors/checks"
 )
 
 type decodeJSONFields struct {
@@ -35,18 +54,20 @@ var (
 		MaxDepth:     1,
 		ProcessArray: false,
 	}
+	errProcessingSkipped = errors.New("processing skipped")
 )
 
 var debug = logp.MakeDebug("filters")
 
 func init() {
 	processors.RegisterPlugin("decode_json_fields",
-		configChecked(newDecodeJSONFields,
-			requireFields("fields"),
-			allowedFields("fields", "max_depth", "overwrite_keys", "process_array", "target", "when")))
+		checks.ConfigChecked(NewDecodeJSONFields,
+			checks.RequireFields("fields"),
+			checks.AllowedFields("fields", "max_depth", "overwrite_keys", "process_array", "target", "when")))
 }
 
-func newDecodeJSONFields(c *common.Config) (processors.Processor, error) {
+// NewDecodeJSONFields construct a new decode_json_fields processor.
+func NewDecodeJSONFields(c *common.Config) (processors.Processor, error) {
 	config := defaultConfig
 
 	err := c.Unpack(&config)
@@ -127,12 +148,14 @@ func unmarshal(maxDepth int, text string, fields *interface{}, processArray bool
 		str, isString := v.(string)
 		if !isString {
 			return v, false
+		} else if !isStructured(str) {
+			return str, false
 		}
 
 		var tmp interface{}
 		err := unmarshal(maxDepth, str, &tmp, processArray)
 		if err != nil {
-			return v, false
+			return v, err == errProcessingSkipped
 		}
 
 		return tmp, true
@@ -149,7 +172,7 @@ func unmarshal(maxDepth int, text string, fields *interface{}, processArray bool
 	// We want to process arrays here
 	case []interface{}:
 		if !processArray {
-			break
+			return errProcessingSkipped
 		}
 
 		for i, v := range O {
@@ -174,6 +197,10 @@ func decodeJSON(text string, to *interface{}) error {
 		return errors.New("multiple json elements found")
 	}
 
+	if _, err := dec.Token(); err != nil && err != io.EOF {
+		return err
+	}
+
 	switch O := interface{}(*to).(type) {
 	case map[string]interface{}:
 		jsontransform.TransformNumbers(O)
@@ -183,4 +210,11 @@ func decodeJSON(text string, to *interface{}) error {
 
 func (f decodeJSONFields) String() string {
 	return "decode_json_fields=" + strings.Join(f.fields, ", ")
+}
+
+func isStructured(s string) bool {
+	s = strings.TrimSpace(s)
+	end := len(s) - 1
+	return end > 0 && ((s[0] == '[' && s[end] == ']') ||
+		(s[0] == '{' && s[end] == '}'))
 }

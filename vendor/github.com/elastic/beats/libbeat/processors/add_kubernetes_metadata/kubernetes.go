@@ -1,14 +1,29 @@
+// Licensed to Elasticsearch B.V. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. Elasticsearch B.V. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package add_kubernetes_metadata
 
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
-	"github.com/elastic/beats/libbeat/common/bus"
 	"github.com/elastic/beats/libbeat/common/kubernetes"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/libbeat/processors"
@@ -18,33 +33,27 @@ const (
 	timeout = time.Second * 5
 )
 
-var (
-	fatalError = errors.New("Unable to create kubernetes processor")
-)
-
 type kubernetesAnnotator struct {
-	sync.RWMutex
-	watcher        kubernetes.Watcher
-	startListener  bus.Listener
-	stopListener   bus.Listener
-	updateListener bus.Listener
-	indexers       *Indexers
-	matchers       *Matchers
-	metadata       map[string]common.MapStr
+	watcher  kubernetes.Watcher
+	indexers *Indexers
+	matchers *Matchers
+	cache    *cache
 }
 
 func init() {
-	processors.RegisterPlugin("add_kubernetes_metadata", newKubernetesAnnotator)
+	processors.RegisterPlugin("add_kubernetes_metadata", New)
 
 	// Register default indexers
 	Indexing.AddIndexer(PodNameIndexerName, NewPodNameIndexer)
+	Indexing.AddIndexer(PodUIDIndexerName, NewPodUIDIndexer)
 	Indexing.AddIndexer(ContainerIndexerName, NewContainerIndexer)
 	Indexing.AddIndexer(IPPortIndexerName, NewIPPortIndexer)
 	Indexing.AddMatcher(FieldMatcherName, NewFieldMatcher)
 	Indexing.AddMatcher(FieldFormatMatcherName, NewFieldFormatMatcher)
 }
 
-func newKubernetesAnnotator(cfg *common.Config) (processors.Processor, error) {
+// New constructs a new add_kubernetes_metadata processor.
+func New(cfg *common.Config) (processors.Processor, error) {
 	config := defaultKubernetesAnnotatorConfig()
 
 	err := cfg.Unpack(&config)
@@ -75,7 +84,11 @@ func newKubernetesAnnotator(cfg *common.Config) (processors.Processor, error) {
 		Indexing.RUnlock()
 	}
 
-	metaGen := kubernetes.NewMetaGenerator(config.IncludeAnnotations, config.IncludeLabels, config.ExcludeLabels)
+	metaGen, err := kubernetes.NewMetaGenerator(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	indexers := NewIndexers(config.Indexers, metaGen)
 
 	matchers := NewMatchers(config.Matchers)
@@ -89,36 +102,46 @@ func newKubernetesAnnotator(cfg *common.Config) (processors.Processor, error) {
 		return nil, err
 	}
 
-	config.Host = kubernetes.DiscoverKubernetesNode(config.Host, client)
+	config.Host = kubernetes.DiscoverKubernetesNode(config.Host, config.InCluster, client)
 
-	logp.Debug("kubernetes", "Using host ", config.Host)
+	logp.Debug("kubernetes", "Using host: %s", config.Host)
 	logp.Debug("kubernetes", "Initializing watcher")
-	if client != nil {
-		watcher := kubernetes.NewWatcher(client.CoreV1(), config.SyncPeriod, config.CleanupTimeout, config.Host)
-		start := watcher.ListenStart()
-		stop := watcher.ListenStop()
-		update := watcher.ListenUpdate()
 
-		processor := &kubernetesAnnotator{
-			watcher:        watcher,
-			indexers:       indexers,
-			matchers:       matchers,
-			metadata:       make(map[string]common.MapStr, 0),
-			startListener:  start,
-			stopListener:   stop,
-			updateListener: update,
-		}
-
-		// Start worker
-		go processor.worker()
-
-		if err := watcher.Start(); err != nil {
-			return nil, err
-		}
-		return processor, nil
+	watcher, err := kubernetes.NewWatcher(client, &kubernetes.Pod{}, kubernetes.WatchOptions{
+		SyncTimeout: config.SyncPeriod,
+		Node:        config.Host,
+		Namespace:   config.Namespace,
+	})
+	if err != nil {
+		logp.Err("kubernetes: Couldn't create watcher for %T", &kubernetes.Pod{})
+		return nil, err
 	}
 
-	return nil, fatalError
+	processor := &kubernetesAnnotator{
+		watcher:  watcher,
+		indexers: indexers,
+		matchers: matchers,
+		cache:    newCache(config.CleanupTimeout),
+	}
+
+	watcher.AddEventHandler(kubernetes.ResourceEventHandlerFuncs{
+		AddFunc: func(obj kubernetes.Resource) {
+			processor.addPod(obj.(*kubernetes.Pod))
+		},
+		UpdateFunc: func(obj kubernetes.Resource) {
+			processor.removePod(obj.(*kubernetes.Pod))
+			processor.addPod(obj.(*kubernetes.Pod))
+		},
+		DeleteFunc: func(obj kubernetes.Resource) {
+			processor.removePod(obj.(*kubernetes.Pod))
+		},
+	})
+
+	if err := watcher.Start(); err != nil {
+		return nil, err
+	}
+
+	return processor, nil
 }
 
 func (k *kubernetesAnnotator) Run(event *beat.Event) (*beat.Event, error) {
@@ -127,69 +150,29 @@ func (k *kubernetesAnnotator) Run(event *beat.Event) (*beat.Event, error) {
 		return event, nil
 	}
 
-	k.RLock()
-	metadata := k.metadata[index]
-	k.RUnlock()
+	metadata := k.cache.get(index)
 	if metadata == nil {
 		return event, nil
 	}
 
-	meta := common.MapStr{}
-	metaIface, ok := event.Fields["kubernetes"]
-	if !ok {
-		event.Fields["kubernetes"] = common.MapStr{}
-	} else {
-		meta = metaIface.(common.MapStr)
-	}
-
-	meta.Update(metadata)
-	event.Fields["kubernetes"] = meta
+	event.Fields.DeepUpdate(common.MapStr{
+		"kubernetes": metadata.Clone(),
+	})
 
 	return event, nil
 }
 
-// worker watches pod events and keeps a map of metadata
-func (k *kubernetesAnnotator) worker() {
-	for {
-		select {
-		case event := <-k.startListener.Events():
-			processEvent(k.addPod, event)
-
-		case event := <-k.stopListener.Events():
-			processEvent(k.removePod, event)
-
-		case event := <-k.updateListener.Events():
-			processEvent(k.removePod, event)
-			processEvent(k.addPod, event)
-		}
-	}
-}
-
-// Run pod actions while handling errors
-func processEvent(f func(pod *kubernetes.Pod), event bus.Event) {
-	pod, ok := event["pod"].(*kubernetes.Pod)
-	if !ok {
-		logp.Err("Couldn't get a pod from watcher event")
-		return
-	}
-	f(pod)
-}
-
 func (k *kubernetesAnnotator) addPod(pod *kubernetes.Pod) {
 	metadata := k.indexers.GetMetadata(pod)
-	k.Lock()
-	defer k.Unlock()
 	for _, m := range metadata {
-		k.metadata[m.Index] = m.Data
+		k.cache.set(m.Index, m.Data)
 	}
 }
 
 func (k *kubernetesAnnotator) removePod(pod *kubernetes.Pod) {
 	indexes := k.indexers.GetIndexes(pod)
-	k.Lock()
-	defer k.Unlock()
 	for _, idx := range indexes {
-		delete(k.metadata, idx)
+		k.cache.delete(idx)
 	}
 }
 
