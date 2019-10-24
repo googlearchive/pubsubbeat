@@ -15,7 +15,7 @@ This is not an officially supported Google product.
 
 ### Requirements
 
-* [Golang](https://golang.org/dl/) 1.9
+* [Golang](https://golang.org/dl/) 1.12
 
 ### Build
 
@@ -39,36 +39,15 @@ To run Pubsubbeat with debugging output enabled, run:
 To test Pubsubbeat, run the following command:
 
 ```
-make testsuite
+make test
 ```
-
-alternatively:
-```
-make unit-tests
-make system-tests
-make integration-tests
-make coverage-report
-```
-
-The test coverage is reported in the folder `./build/coverage/`
-
-### Update
-
-Each beat has a template for the mapping in elasticsearch and a documentation for the fields
-which is automatically generated based on `fields.yml` by running the following command.
-
-```
-make update
-```
-
 
 ### Cleanup
 
 To clean  Pubsubbeat source code, run the following commands:
 
 ```
-make fmt
-make simplify
+make pre-commit
 ```
 
 To clean up the build directory and generated artifacts, run:
@@ -78,25 +57,12 @@ make clean
 ```
 
 
-### Clone
-
-To clone Pubsubbeat from the git repository, run the following commands:
-
-```
-mkdir -p ${GOPATH}/src/github.com/GoogleCloudPlatform/pubsubbeat
-git clone https://github.com/GoogleCloudPlatform/pubsubbeat ${GOPATH}/src/github.com/GoogleCloudPlatform/pubsubbeat
-```
-
-
-For further development, check out the [beat developer guide](https://www.elastic.co/guide/en/beats/libbeat/current/new-beat.html).
-
-
 ## Packaging
 
-The beat frameworks provides tools to crosscompile and package your beat for different platforms. This requires [docker](https://www.docker.com/) and vendoring as described above. To build packages of your beat, run the following command:
+To build releases for available platforms:
 
 ```
-make package
+make release
 ```
 
-This will fetch and create all images required for the build process. The whole process to finish can take several minutes.
+This will fetch and create binaries for all Linux, Windows and OSX
