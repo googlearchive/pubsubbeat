@@ -5,12 +5,17 @@ GOBUILD_FLAGS=-ldflags "-X $(BEAT_PATH)/vendor/github.com/elastic/beats/libbeat/
 EXES=linux windows darwin
 RELEASE_TEMPLATE_DIR=${BUILD_DIR}/releases/template
 
+.PHONY: build
+build:
+	go build -o ${BEAT_NAME} ${GOBUILD_FLAGS}
+
 .PHONY: pre-commit
 pre-commit: clean fmt vet update test
 
 .PHONY: clean
 clean:
 	rm -rf ${BUILD_DIR}
+	rm -f ${BEAT_NAME}
 
 .PHONY: test
 test:
@@ -23,10 +28,6 @@ fmt:
 .PHONY: vet
 vet:
 	go vet ./...
-
-.PHONY: build
-build:
-	go build -o ${BUILD_DIR}/${BEAT_NAME} ${GOBUILD_FLAGS}
 
 .PHONY: update
 update:
