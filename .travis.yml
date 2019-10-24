@@ -14,4 +14,4 @@ before_install:
 script:
   - make test
   - make build
-  - ls -l bin/pubsubbeat
+  - ls -l pubsubbeat
