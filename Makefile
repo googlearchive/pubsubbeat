@@ -17,7 +17,7 @@ clean:
 	rm -rf ${BUILD_DIR}
 	rm -f ${BEAT_NAME}
 
-.PHONY: test
+.PHONY: testmakefile 
 test:
 	go test ./...
 
@@ -39,12 +39,12 @@ release: $(EXES)
 $(EXES): release-template
 	@echo "Generating release: " $@
 
-	mkdir -p ${BUILD_DIR}/releases/$@
-	cp -r ${RELEASE_TEMPLATE_DIR}/. ${BUILD_DIR}/releases/$@
+	mkdir -p ${BUILD_DIR}/releases/${BEAT_NAME}-$@-amd64
+	cp -r ${RELEASE_TEMPLATE_DIR}/. ${BUILD_DIR}/releases/${BEAT_NAME}-$@-amd64
 
-	GOOS=$@ GOARCH=amd64 go build -o ${BUILD_DIR}/releases/$@/${BEAT_NAME} ${GOBUILD_FLAGS}
+	GOOS=$@ GOARCH=amd64 go build -o ${BUILD_DIR}/releases/${BEAT_NAME}-$@-amd64/${BEAT_NAME} ${GOBUILD_FLAGS}
 
-	tar -zcvf ${BUILD_DIR}/releases/$@.tar.gz -C ${BUILD_DIR}/releases $@
+	tar -zcvf ${BUILD_DIR}/releases/${BEAT_NAME}-$@-amd64.tar.gz -C ${BUILD_DIR}/releases ${BEAT_NAME}-$@-amd64
 
 .PHONY: release-template
 release-template:
