@@ -63,6 +63,14 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		return nil, err
 	}
 
+	connectionPoolSize := config.Subscription.ConnectionPoolSize
+	subscription.ReceiveSettings.NumGoroutines = connectionPoolSize
+
+	if connectionPoolSize == 1 {
+		logger.Warnf("Pub/Sub streaming pull has a per-subscriber throughput limit, https://cloud.google.com/pubsub/quotas")
+		logger.Warnf("Use `subscription.connection_pool_size` to increase the numnber of subscribers.")
+	}
+
 	bt := &Pubsubbeat{
 		done:         make(chan struct{}),
 		config:       config,

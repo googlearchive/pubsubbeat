@@ -40,6 +40,13 @@ pubsubbeat:
   # Valid time units are "m" and "h". You can also compose them: "2h30m".
   subscription.retention_duration: 168h # Defaults to 7 days
 
+  # How many simultaneous connections the beat will establish to the Pub/Sub endpoint.
+  # Pub/Sub streaming pull has a per-subscriber throughput limit,
+  # https://cloud.google.com/pubsub/quotas
+  # Increasing the pool size will increase the throughput of the beat until
+  # a different quota is hit.
+  subscription.connection_pool_size: 1
+
   ### JSON Configuration
 
   # Whether to decode the Pub/Sub message as a JSON message.
