@@ -24,7 +24,7 @@ import (
 // Name of this beat
 var Name = "pubsubbeat"
 var settings = instance.Settings{
-    Name: Name,
+	Name: Name,
 }
 
 // RootCmd to handle beats cli

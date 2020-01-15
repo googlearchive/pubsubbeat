@@ -39,6 +39,7 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.2+incompatible // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/google/btree v1.0.0 // indirect
 	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gorilla/mux v1.7.3 // indirect

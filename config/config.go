@@ -33,6 +33,9 @@ type Config struct {
 		RetainAckedMessages bool          `config:"retain_acked_messages"`
 		RetentionDuration   time.Duration `config:"retention_duration"`
 		Create              bool          `config:"create"`
+
+		// Settings for the Pub/Sub receiver
+		ConnectionPoolSize int `config:"connection_pool_size"`
 	}
 	Json struct {
 		Enabled               bool   `config:"enabled"`
@@ -46,6 +49,7 @@ type Config struct {
 
 func GetDefaultConfig() Config {
 	config := Config{}
+	config.Subscription.ConnectionPoolSize = 1
 	config.Subscription.Create = true
 	config.Json.FieldsTimestampName = "@timestamp"
 	return config
@@ -65,6 +69,10 @@ func GetAndValidateConfig(cfg *common.Config) (*Config, error) {
 
 	if d, _ := time.ParseDuration("168h"); c.Subscription.RetentionDuration > d {
 		return nil, fmt.Errorf("retention_duration cannot be longer than 7 days")
+	}
+
+	if cxns := c.Subscription.ConnectionPoolSize; cxns < 1 {
+		return nil, fmt.Errorf("Connection pool size must be >= 1, got: %d", cxns)
 	}
 
 	if c.CredentialsFile != "" {

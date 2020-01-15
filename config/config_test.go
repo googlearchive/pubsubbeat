@@ -81,31 +81,44 @@ func TestGetAndValidateConfigSubscriptionConfig(t *testing.T) {
 	cases := map[string]struct {
 		RetainAckedMessages bool
 		RetentionDuration   string
-		ExpectError         bool
+		ConnectionPoolSize  int64
+
+		ExpectError bool
 	}{
 		"168h retention and keep acked messages": {
 			RetainAckedMessages: true,
 			RetentionDuration:   "168h",
+			ConnectionPoolSize:  1,
 			ExpectError:         false,
 		},
 		"10m retention and don't keep acked messages": {
 			RetainAckedMessages: false,
 			RetentionDuration:   "10m",
+			ConnectionPoolSize:  1,
 			ExpectError:         false,
 		},
 		"retention period invalid format": {
 			RetainAckedMessages: true,
 			RetentionDuration:   "1d", // Duration should be in hours or minutes.
+			ConnectionPoolSize:  1,
 			ExpectError:         true,
 		},
 		"retention period too short": {
 			RetainAckedMessages: true,
 			RetentionDuration:   "9m",
+			ConnectionPoolSize:  1,
 			ExpectError:         true,
 		},
 		"retention period too long": {
 			RetainAckedMessages: true,
 			RetentionDuration:   "168h1m",
+			ConnectionPoolSize:  1,
+			ExpectError:         true,
+		},
+		"zero connections": {
+			RetainAckedMessages: true,
+			RetentionDuration:   "10m",
+			ConnectionPoolSize:  0,
 			ExpectError:         true,
 		},
 	}
@@ -116,6 +129,7 @@ func TestGetAndValidateConfigSubscriptionConfig(t *testing.T) {
 		sConfig, _ := c.Child("subscription", -1)
 		sConfig.SetBool("retain_acked_messages", -1, tc.RetainAckedMessages)
 		sConfig.SetString("retention_duration", -1, tc.RetentionDuration)
+		sConfig.SetInt("connection_pool_size", -1, tc.ConnectionPoolSize)
 
 		conf, err := GetAndValidateConfig(c)
 
