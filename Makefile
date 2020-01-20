@@ -1,9 +1,13 @@
 BEAT_NAME=pubsubbeat
 BUILD_DIR=bin
 BEAT_PATH=github.com/GoogleCloudPlatform/pubsubbeat
-GOBUILD_FLAGS=-ldflags "-X $(BEAT_PATH)/vendor/github.com/elastic/beats/libbeat/version.buildTime=$(NOW) -X $(BEAT_PATH)/vendor/github.com/elastic/beats/libbeat/version.commit=$(COMMIT_ID)"
-EXES=linux windows darwin
-RELEASE_TEMPLATE_DIR=${BUILD_DIR}/releases/template
+
+NOW             ?= $(shell date --iso-8601=seconds)
+COMMIT_ID       ?= $(shell git rev-parse HEAD)
+VERSION_LDFLAGS := \
+  -X github.com/elastic/beats/libbeat/version.buildTime=$(NOW) \
+  -X github.com/elastic/beats/libbeat/version.commit=$(COMMIT_ID)
+GOBUILD_FLAGS=-ldflags "$(VERSION_LDFLAGS)"
 
 .PHONY: build
 build:
@@ -34,23 +38,8 @@ update:
 	@echo "TODO: update deps"
 
 .PHONY: release
-release: $(EXES)
+release: dashboards
+	goreleaser --snapshot --skip-publish --rm-dist
 
-$(EXES): release-template
-	@echo "Generating release: " $@
-
-	mkdir -p ${BUILD_DIR}/releases/$@
-	cp -r ${RELEASE_TEMPLATE_DIR}/. ${BUILD_DIR}/releases/$@
-
-	GOOS=$@ GOARCH=amd64 go build -o ${BUILD_DIR}/releases/$@/${BEAT_NAME} ${GOBUILD_FLAGS}
-
-	tar -zcvf ${BUILD_DIR}/releases/$@.tar.gz -C ${BUILD_DIR}/releases $@
-
-.PHONY: release-template
-release-template:
-	mkdir -p ${RELEASE_TEMPLATE_DIR}
-
-	cp {${BEAT_NAME}.yml,${BEAT_NAME}.reference.yml} ${RELEASE_TEMPLATE_DIR}
-	cp {README.md,NOTICE,LICENSE,fields.yml} ${RELEASE_TEMPLATE_DIR}
-
-	cp -r _meta/kibana ${RELEASE_TEMPLATE_DIR}/dashboards
+dashboards:
+	cp -r _meta/kibana dashboards
