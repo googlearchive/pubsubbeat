@@ -44,6 +44,11 @@ type Pubsubbeat struct {
 	logger       *logp.Logger
 }
 
+type ackableEvent struct {
+	message *pubsub.Message
+	event   beat.Event
+}
+
 func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	config, err := config.GetAndValidateConfig(cfg)
 	if err != nil {
@@ -100,6 +105,46 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 		bt.pubsubClient.Close()
 	}()
 
+	events := make(chan ackableEvent)
+
+	go func() {
+		// batch up documents to prevent contending on lock in client.Publish()
+
+		batchMaxSize := 512
+		batchMaxTime := 1 * time.Second
+
+		t := time.Tick(batchMaxTime)
+		batch := make([]beat.Event, 0, batchMaxSize)
+		batchAcks := make([]*pubsub.Message, 0, batchMaxSize)
+
+		for {
+			select {
+			case <-bt.done:
+				return
+			case ae := <-events:
+				batch = append(batch, ae.event)
+				batchAcks = append(batchAcks, ae.message)
+				if len(batch) == batchMaxSize {
+					bt.client.PublishAll(batch)
+					for _, a := range batchAcks {
+						// TODO: Evaluate using AckHandler.
+						a.Ack()
+					}
+					batch = make([]beat.Event, 0, batchMaxSize)
+					batchAcks = make([]*pubsub.Message, 0, batchMaxSize)
+				}
+			case <-t:
+				bt.client.PublishAll(batch)
+				for _, a := range batchAcks {
+					// TODO: Evaluate using AckHandler.
+					a.Ack()
+				}
+				batch = make([]beat.Event, 0, batchMaxSize)
+				batchAcks = make([]*pubsub.Message, 0, batchMaxSize)
+			}
+		}
+	}()
+
 	err = bt.subscription.Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
 		// This callback is invoked concurrently by multiple goroutines
 		var datetime time.Time
@@ -149,13 +194,21 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 		if datetime.IsZero() {
 			datetime = time.Now()
 		}
-		bt.client.Publish(beat.Event{
+
+		e := beat.Event{
 			Timestamp: datetime,
 			Fields:    eventMap,
-		})
+		}
 
-		// TODO: Evaluate using AckHandler.
-		m.Ack()
+		ae := ackableEvent{
+			event:   e,
+			message: m,
+		}
+
+		select {
+		case <-bt.done:
+		case events <- ae:
+		}
 	})
 
 	if err != nil {
