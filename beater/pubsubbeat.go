@@ -108,7 +108,7 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 	events := make(chan ackableEvent)
 
 	go func() {
-		// batch up documents to prevent contending on lock in client.Publish()
+		// Batch up documents to prevent contending on lock in client.Publish()
 
 		batchMaxSize := 512
 		batchMaxTime := 1 * time.Second
@@ -127,7 +127,6 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 				if len(batch) == batchMaxSize {
 					bt.client.PublishAll(batch)
 					for _, a := range batchAcks {
-						// TODO: Evaluate using AckHandler.
 						a.Ack()
 					}
 					batch = make([]beat.Event, 0, batchMaxSize)
@@ -136,7 +135,6 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 			case <-t:
 				bt.client.PublishAll(batch)
 				for _, a := range batchAcks {
-					// TODO: Evaluate using AckHandler.
 					a.Ack()
 				}
 				batch = make([]beat.Event, 0, batchMaxSize)
