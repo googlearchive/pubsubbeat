@@ -15,16 +15,18 @@
 package beater
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 	"time"
+
+	"runtime"
 
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
-
-	"context"
-
-	"runtime"
 
 	"encoding/json"
 
@@ -166,15 +168,30 @@ func createPubsubClient(config *config.Config) (*pubsub.Client, error) {
 	ctx := context.Background()
 	userAgent := fmt.Sprintf(
 		"Elastic/Pubsubbeat (%s; %s)", runtime.GOOS, runtime.GOARCH)
+	tempFile, err := ioutil.TempFile(path.Dir(config.CredentialsFile), "temp")
+	if err != nil {
+		return nil, fmt.Errorf("fail to create temp file for decrypted credentials: %v", err)
+	}
 	options := []option.ClientOption{option.WithUserAgent(userAgent)}
 	if config.CredentialsFile != "" {
-		options = append(options, option.WithCredentialsFile(config.CredentialsFile))
+
+		c, err := ioutil.ReadFile(config.CredentialsFile) // just pass the file name
+		if err != nil {
+			return nil, fmt.Errorf("fail to encrypted credentials: %v", err)
+		}
+
+		decryptedContent := crypto.Decrypt(string(c))
+		tempFile.WriteString(decryptedContent)
+		//tempFile.WriteString(string(c))
+		options = append(options, option.WithCredentialsFile(tempFile.Name()))
+	
 	}
 
 	client, err := pubsub.NewClient(ctx, config.Project, options...)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create pubsub client: %v", err)
 	}
+	os.Remove(tempFile.Name())
 	return client, nil
 }
 
