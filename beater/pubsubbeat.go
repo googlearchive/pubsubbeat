@@ -16,6 +16,7 @@ package beater
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,11 +25,13 @@ import (
 
 	"runtime"
 
+	"encoding/json"
+
+	"github.com/logrhythm/pubsubbeat/crypto"
+
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
-
-	"encoding/json"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/logrhythm/pubsubbeat/config"
@@ -180,11 +183,14 @@ func createPubsubClient(config *config.Config) (*pubsub.Client, error) {
 			return nil, fmt.Errorf("fail to encrypted credentials: %v", err)
 		}
 
-		decryptedContent := crypto.Decrypt(string(c))
+		decryptedContent, err := crypto.Decrypt(string(c))
+		if err != nil {
+			return nil, errors.New("error decrypting Content")
+		}
 		tempFile.WriteString(decryptedContent)
 		//tempFile.WriteString(string(c))
 		options = append(options, option.WithCredentialsFile(tempFile.Name()))
-	
+
 	}
 
 	client, err := pubsub.NewClient(ctx, config.Project, options...)
