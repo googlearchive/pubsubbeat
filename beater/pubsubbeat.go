@@ -188,7 +188,6 @@ func createPubsubClient(config *config.Config) (*pubsub.Client, error) {
 			return nil, errors.New("error decrypting Content")
 		}
 		tempFile.WriteString(decryptedContent)
-		//tempFile.WriteString(string(c))
 		options = append(options, option.WithCredentialsFile(tempFile.Name()))
 
 	}

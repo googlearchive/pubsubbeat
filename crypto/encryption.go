@@ -5,13 +5,23 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"io"
+	"strings"
 )
 
 var cipherKey = []byte("0123456789012345")
 
+const (
+	encV1 = 1
+)
+
 //Encrypt function is used to encrypt the string
 func Encrypt(message string) (encmess string, err error) {
+	if len(strings.TrimSpace(message)) == 0 {
+		return "", errors.New("string is empty")
+	}
 	plainText := []byte(message)
 
 	block, err := aes.NewCipher(cipherKey)
@@ -32,5 +42,6 @@ func Encrypt(message string) (encmess string, err error) {
 
 	//returns to base64 encoded string
 	encmess = base64.URLEncoding.EncodeToString(cipherText)
-	return encmess, nil
+	finalEnc := fmt.Sprintf("%d%s%s", encV1, "||", encmess)
+	return finalEnc, nil
 }
