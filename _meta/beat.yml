@@ -59,3 +59,7 @@ pubsubbeat:
   # in case of JSON unmarshaling errors or when a text key is defined in the configuration
   # but cannot be used.
   json.add_error_key: false
+
+  # If this setting is enabled, the "message" field is set with the raw plaintext
+  # message.
+  json.fields_keep_message: true # Defaults to true, for BC

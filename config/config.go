@@ -44,6 +44,7 @@ type Config struct {
 		FieldsUseTimestamp    bool   `config:"fields_use_timestamp"`
 		FieldsTimestampName   string `config:"fields_timestamp_name"`
 		FieldsTimestampFormat string `config:"fields_timestamp_format"`
+		FieldsKeepMessage     bool   `config:"fields_keep_message"`
 	}
 }
 
@@ -52,6 +53,7 @@ func GetDefaultConfig() Config {
 	config.Subscription.ConnectionPoolSize = 1
 	config.Subscription.Create = true
 	config.Json.FieldsTimestampName = "@timestamp"
+	config.Json.FieldsKeepMessage = true
 	return config
 }
 

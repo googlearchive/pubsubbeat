@@ -5,7 +5,7 @@
   fields:
     - name: message
       type: text
-      required: true
+      required: false
       description: >
         Plain text message payload
     - name: json

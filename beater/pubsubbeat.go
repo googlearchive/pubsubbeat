@@ -144,6 +144,10 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 					}
 				}
 			}
+
+			if !bt.config.Json.FieldsKeepMessage {
+				delete(eventMap, "message")
+			}
 		}
 
 		if datetime.IsZero() {
