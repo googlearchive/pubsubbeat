@@ -15,7 +15,10 @@
 package beater
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"sync"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -26,6 +29,7 @@ import (
 
 	"runtime"
 
+	"compress/gzip"
 	"encoding/json"
 
 	"cloud.google.com/go/pubsub"
@@ -42,6 +46,7 @@ type Pubsubbeat struct {
 	pubsubClient *pubsub.Client
 	subscription *pubsub.Subscription
 	logger       *logp.Logger
+	zippers      *sync.Pool
 }
 
 func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
@@ -77,6 +82,7 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		pubsubClient: client,
 		subscription: subscription,
 		logger:       logger,
+		zippers:      &sync.Pool{New: func() interface{} { return new(gzip.Reader) }},
 	}
 	return bt, nil
 }
@@ -112,6 +118,16 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 
 		if len(m.Attributes) > 0 {
 			eventMap["attributes"] = m.Attributes
+		}
+
+		if m.Attributes["pubsubbeat.gzip"] == "true" {
+			err = bt.decompress(m)
+			if err != nil {
+				bt.logger.Warnf("failed to decompress gzip: %s", err)
+				m.Nack()
+				return
+			}
+			delete(eventMap, "message")
 		}
 
 		if bt.config.Json.Enabled {
@@ -168,6 +184,23 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 func (bt *Pubsubbeat) Stop() {
 	bt.client.Close()
 	close(bt.done)
+}
+
+func (bt *Pubsubbeat) decompress(m *pubsub.Message) error {
+	rc := bt.zippers.Get().(*gzip.Reader)
+	if err := rc.Reset(bytes.NewReader(m.Data)); err != nil {
+		return fmt.Errorf("rc.Reset: %v", err)
+	}
+	var data bytes.Buffer
+	if _, err := io.Copy(&data, rc); err != nil {
+		return fmt.Errorf("io.Copy: %v", err)
+	}
+	if err := rc.Close(); err != nil {
+		return fmt.Errorf("gzip.Close: %v", err)
+	}
+	bt.zippers.Put(rc)
+	m.Data = data.Bytes()
+	return nil
 }
 
 func createPubsubClient(config *config.Config) (*pubsub.Client, error) {
