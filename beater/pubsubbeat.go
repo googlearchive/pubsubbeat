@@ -120,7 +120,7 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 			eventMap["attributes"] = m.Attributes
 		}
 
-		if m.Attributes["pubsubbeat.gzip"] == "true" {
+		if m.Attributes["pubsubbeat.compression"] == "gzip" {
 			err = bt.decompress(m)
 			if err != nil {
 				bt.logger.Warnf("failed to decompress gzip: %s", err)
