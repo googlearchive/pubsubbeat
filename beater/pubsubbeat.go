@@ -104,16 +104,6 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 	err = bt.subscription.Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
 		// This callback is invoked concurrently by multiple goroutines
 		var datetime time.Time
-		eventMap := common.MapStr{
-			"type":         b.Info.Name,
-			"message_id":   m.ID,
-			"publish_time": m.PublishTime,
-			"message":      string(m.Data),
-		}
-
-		if len(m.Attributes) > 0 {
-			eventMap["attributes"] = m.Attributes
-		}
 
 		var rawRecords [][]byte
 		if m.Attributes["pubsubbeat.ndjson"] == "true" {
@@ -127,6 +117,20 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 		for _, rawRecord := range rawRecords {
 			if len(rawRecord) == 0 {
 				continue
+			}
+
+			eventMap := common.MapStr{
+				"type":         b.Info.Name,
+				"message_id":   m.ID,
+				"publish_time": m.PublishTime,
+			}
+
+			if len(m.Attributes) > 0 {
+				eventMap["attributes"] = m.Attributes
+			}
+
+			if m.Attributes["pubsubbeat.ndjson"] != "true" {
+				eventMap["message"] = string(m.Data)
 			}
 
 			if bt.config.Json.Enabled {
