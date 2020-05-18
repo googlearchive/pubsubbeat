@@ -123,14 +123,11 @@ func (bt *Pubsubbeat) Run(b *beat.Beat) error {
 				"type":         b.Info.Name,
 				"message_id":   m.ID,
 				"publish_time": m.PublishTime,
+				"message":      string(rawRecord),
 			}
 
 			if len(m.Attributes) > 0 {
 				eventMap["attributes"] = m.Attributes
-			}
-
-			if m.Attributes["pubsubbeat.ndjson"] != "true" {
-				eventMap["message"] = string(m.Data)
 			}
 
 			if bt.config.Json.Enabled {
