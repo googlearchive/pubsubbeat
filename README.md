@@ -1,4 +1,10 @@
-[![Build Status](https://travis-ci.org/GoogleCloudPlatform/pubsubbeat.svg?branch=master)](https://travis-ci.org/GoogleCloudPlatform/pubsubbeat) [![Go Report Card](https://goreportcard.com/badge/github.com/GoogleCloudPlatform/pubsubbeat)](https://goreportcard.com/report/github.com/GoogleCloudPlatform/pubsubbeat) [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+# Status: Archived
+
+This project is no longer actively maintained by Google. 
+
+* GitLab hosts a fork at: https://gitlab.com/gitlab-org/pubsubbeat
+
+------------
 
 # Pubsubbeat
 
