@@ -3,6 +3,7 @@
 This project is no longer actively maintained by Google. 
 
 * GitLab hosts a fork at: https://gitlab.com/gitlab-org/pubsubbeat
+* For other assistance, please reach out to the [Google Open Source Programs Office](mailto:gcp-ospo@googlegroups.com).
 
 ------------
 
